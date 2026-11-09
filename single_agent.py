@@ -1,23 +1,31 @@
+import csv
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 from langchain_ollama import ChatOllama
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
-import csv
+
+test_list = []
 
 with open("data/murder_mystery.csv", encoding="utf-8") as eval_data:
     reader = csv.DictReader(eval_data, delimiter=",")
+    story_count = 0
+    for line in reader:
+        narrative = line["narrative"]
+        question = line["question"]
+        choices = line["choices"]
+        correct_answer = line["answer_choice"]
 
-    line = next(reader)
-    narrative = line["narrative"]
-    question = line["question"]
-    choices = line["choices"]
-    correct_answer = line["answer_choice"]
-
-    prompt = f"{narrative}\n\n{question}\n\nYour choices are: {choices}"
-    answer_prompt = f"ANSWER: {correct_answer}"
-    print(prompt)
-    print(answer_prompt)
+        prompt = f"{narrative}\n\n{question}\n\nYour choices are: {choices}"
+        answer_prompt = f"ANSWER: {correct_answer}"
+        prompt_dict = {
+            "index": story_count,
+            "story_context": prompt,
+            "correct_answer": answer_prompt,
+        }
+        test_list.append(prompt_dict)
+        story_count += 1
 
 
 # A tool is an ordinary function with typed inputs and a clear description.
@@ -41,10 +49,10 @@ def agent(state: MessagesState):
         [
             SystemMessage(
                 content=(
-                    "Answer the following multiple choice question."
-                    "The last line of your response should be of the following format: 'ANSWER: [NAME]' (without quotes) where [NAME] is the chosen suspect."
-                    "Think step by step before answering."
-                    "Clearly specify the evidence that you are using to justify your answer."
+                    "Answer the following multiple choice question.\n"
+                    "The last line of your response should be of the following format: 'ANSWER: [NAME]' (without quotes) where [NAME] is the chosen suspect.\n"
+                    "Think step by step before answering.\n"
+                    "Clearly specify the evidence that you are using to justify your answer.\n"
                 )
             ),
             *state["messages"],
@@ -66,12 +74,20 @@ graph = builder.compile()
 
 
 if __name__ == "__main__":
-    result = graph.invoke(
-        {"messages": [HumanMessage(content=prompt)]},
-        config={"recursion_limit": 10},
-    )
+    for story in test_list:
+        index = story["index"]
+        test_input = story["story_context"]
+        label = story["correct_answer"]
 
-    response = result["messages"][1]
-    content = response.content
-    answer = content.split("\n")[2]
-    result = answer_prompt == answer
+        result = graph.invoke(
+            {"messages": [HumanMessage(content=test_input)]},
+            config={"recursion_limit": 10},
+        )
+
+        response = result["messages"][1]
+        content = response.content
+        answer = content.split("\n")[2]
+        test_result = label == answer
+        print(
+            f"Index: {index}, Label: {label}, Generated Answer: {answer}, Match: {test_result}"
+        )

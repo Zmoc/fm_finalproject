@@ -1,4 +1,5 @@
 import csv
+import time
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
@@ -40,6 +41,7 @@ tools = [multiply]
 model = ChatOllama(
     model="qwen3:8b",
     temperature=0,
+    client_kwargs={"timeout": 60 * 3},
 ).bind_tools(tools)
 
 
@@ -74,6 +76,9 @@ graph = builder.compile()
 
 
 if __name__ == "__main__":
+    NANOSECOND_CONVERSION = 1000000000
+    timestamp = time.time()
+    eval_list = []
     for story in test_list:
         index = story["index"]
         test_input = story["story_context"]
@@ -86,8 +91,37 @@ if __name__ == "__main__":
 
         response = result["messages"][1]
         content = response.content
-        answer = content.split("\n")[2]
-        test_result = label == answer
-        print(
-            f"Index: {index}, Label: {label}, Generated Answer: {answer}, Match: {test_result}"
-        )
+        generated_answer = content.split("\n")[2]
+        test_result = label == generated_answer
+
+        chosen_model = response.response_metadata.get("model")
+        done_reason = response.response_metadata.get("done_reason")
+        total_duration = response.response_metadata.get("total_duration")
+        load_duration = response.response_metadata.get("load_duration")
+        prompt_eval_count = response.response_metadata.get("prompt_eval_count")
+        prompt_eval_duration = response.response_metadata.get("prompt_eval_duration")
+        eval_count = response.response_metadata.get("eval_count")
+        eval_duration = response.response_metadata.get("eval_duration")
+
+        metadata = {
+            "index": index,
+            "label": label,
+            "generated_answer": generated_answer,
+            "test_result": test_result,
+            "chosen_model": chosen_model,
+            "done_reason": done_reason,
+            "total_duration": total_duration / NANOSECOND_CONVERSION,
+            "load_duration": load_duration / NANOSECOND_CONVERSION,
+            "prompt_eval_count": prompt_eval_count,
+            "prompt_eval_duration": prompt_eval_duration / NANOSECOND_CONVERSION,
+            "eval_count": eval_count,
+            "eval_duration": eval_duration / NANOSECOND_CONVERSION,
+        }
+
+        print(f"Result: {metadata}")
+        eval_list.append(metadata)
+
+    with open(f"eval_results/eval_results_{int(timestamp)}.csv", "w") as f:
+        writer = csv.DictWriter(f, fieldnames=eval_list[0].keys())
+        writer.writeheader()
+        writer.writerows(eval_list)

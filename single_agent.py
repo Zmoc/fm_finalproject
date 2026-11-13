@@ -1,5 +1,6 @@
 import csv
 import time
+from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
@@ -9,7 +10,49 @@ from langgraph.prebuilt import ToolNode, tools_condition
 
 test_list = []
 
-with open("data/murder_mystery.csv", encoding="utf-8") as eval_data:
+
+def eval(eval_list, timestamp, model, thinking, model_type, eval_path):
+    accuracy = 0.0
+    with open(f"eval_results/model_eval_{int(timestamp)}.csv", "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=eval_list[0].keys())
+        writer.writeheader()
+        writer.writerows(eval_list)
+
+    accuracy = accuracy_score(eval_list)
+
+    eval_metadata = [
+        {
+            "timestamp": int(timestamp),
+            "model": model,
+            "model_type": model_type,
+            "thinking": thinking,
+            "accuracy": accuracy,
+        }
+    ]
+
+    if Path(eval_path).is_file():
+        with open("eval_results/eval_results.csv", "a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=eval_metadata[0].keys())
+            writer.writerows(eval_metadata)
+    else:
+        with open(eval_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=eval_metadata[0].keys())
+            writer.writeheader()
+            writer.writerows(eval_metadata)
+
+
+def accuracy_score(eval_list):
+    pass_count = 0
+    num_tests = len(eval_list)
+    for test in eval_list:
+        if test["test_result"] == True:
+            pass_count += 1
+
+    accuracy = pass_count / num_tests
+    return accuracy
+
+
+with open("data/debug_run.csv", encoding="utf-8") as eval_data:
     reader = csv.DictReader(eval_data, delimiter=",")
     story_count = 0
     for line in reader:
@@ -38,10 +81,15 @@ def multiply(a: float, b: float) -> float:
 
 tools = [multiply]
 
+model_choice = "qwen3:8b"
+reasoning = False
+eval_path = "eval_results/eval_results.csv"
+
 model = ChatOllama(
-    model="qwen3:8b",
+    model=model_choice,
     temperature=0,
-    client_kwargs={"timeout": 60 * 3},
+    reasoning=reasoning,
+    # client_kwargs={"timeout": 60 * 3},
 ).bind_tools(tools)
 
 
@@ -83,6 +131,7 @@ if __name__ == "__main__":
         index = story["index"]
         test_input = story["story_context"]
         label = story["correct_answer"]
+        print(f"Running Story {index}")
 
         result = graph.invoke(
             {"messages": [HumanMessage(content=test_input)]},
@@ -91,10 +140,9 @@ if __name__ == "__main__":
 
         response = result["messages"][1]
         content = response.content
-        generated_answer = content.split("\n")[2]
+        generated_answer = content.split("\n")[-1]
         test_result = label == generated_answer
 
-        chosen_model = response.response_metadata.get("model")
         done_reason = response.response_metadata.get("done_reason")
         total_duration = response.response_metadata.get("total_duration")
         load_duration = response.response_metadata.get("load_duration")
@@ -108,7 +156,6 @@ if __name__ == "__main__":
             "label": label,
             "generated_answer": generated_answer,
             "test_result": test_result,
-            "chosen_model": chosen_model,
             "done_reason": done_reason,
             "total_duration": total_duration / NANOSECOND_CONVERSION,
             "load_duration": load_duration / NANOSECOND_CONVERSION,
@@ -118,10 +165,6 @@ if __name__ == "__main__":
             "eval_duration": eval_duration / NANOSECOND_CONVERSION,
         }
 
-        print(f"Result: {metadata}")
+        print(f"Completed: {metadata}")
         eval_list.append(metadata)
-
-    with open(f"eval_results/eval_results_{int(timestamp)}.csv", "w") as f:
-        writer = csv.DictWriter(f, fieldnames=eval_list[0].keys())
-        writer.writeheader()
-        writer.writerows(eval_list)
+    eval(eval_list, timestamp, model_choice, reasoning, "single", eval_path)

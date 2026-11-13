@@ -79,7 +79,7 @@ def multiply(a: float, b: float) -> float:
     return a * b
 
 
-tools = [multiply]
+# tools = [multiply]
 
 model_choice = "qwen3:8b"
 reasoning = False
@@ -90,7 +90,7 @@ model = ChatOllama(
     temperature=0,
     reasoning=reasoning,
     # client_kwargs={"timeout": 60 * 3},
-).bind_tools(tools)
+)  # .bind_tools(tools)
 
 
 # This is the single agent node.
@@ -114,11 +114,11 @@ def agent(state: MessagesState):
 builder = StateGraph(MessagesState)
 
 builder.add_node("agent", agent)
-builder.add_node("tools", ToolNode(tools))
+# builder.add_node("tools", ToolNode(tools))
 
 builder.add_edge(START, "agent")
-builder.add_conditional_edges("agent", tools_condition)
-builder.add_edge("tools", "agent")
+# builder.add_conditional_edges("agent", tools_condition)
+# builder.add_edge("tools", "agent")
 
 graph = builder.compile()
 

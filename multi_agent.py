@@ -1,8 +1,29 @@
+import csv
 from typing import TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
+
+test_list = []
+
+with open("data/test_data/debug_run.csv", encoding="utf-8") as eval_data:
+    reader = csv.DictReader(eval_data, delimiter=",")
+
+    for index, line in enumerate(reader):
+        narrative = line["narrative"]
+        question = line["question"]
+        choices = line["choices"]
+        correct_answer = line["answer_choice"]
+
+        answer_prompt = f"ANSWER: {correct_answer}"
+        prompt_dict = {
+            "index": index,
+            "hypothesis": f"The murderer is {choices[0]}",
+            "narrative": narrative,
+            "correct_answer": answer_prompt,
+        }
+        test_list.append(prompt_dict)
 
 
 class State(TypedDict):
@@ -90,13 +111,19 @@ builder.add_edge("analysis", END)
 
 graph = builder.compile()
 
-result = graph.invoke(
-    {
-        "hypothesis": "Why do solar panels produce less power when hot?",
-        "narrative": "",
-        "extraction": "",
-        "likelihood_hypothesis": "",
-    }
-)
+for story in test_list:
+    index = story["index"]
+    hypothesis = story["hypothesis"]
+    narrative = story["narrative"]
+    label = story["correct_answer"]
+    print(f"Running Story {index}")
+    result = graph.invoke(
+        {
+            "hypothesis": hypothesis,
+            "narrative": narrative,
+            "extraction": "",
+            "likelihood_hypothesis": "",
+        }
+    )
 
-print(result["likelihood_hypothesis"])
+    print(result["likelihood_hypothesis"])

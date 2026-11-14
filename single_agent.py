@@ -9,7 +9,7 @@ from eval_suite import eval
 
 test_list = []
 
-with open("data/debug_run.csv", encoding="utf-8") as eval_data:
+with open("data/test_data/debug_run.csv", encoding="utf-8") as eval_data:
     reader = csv.DictReader(eval_data, delimiter=",")
 
     for index, line in enumerate(reader):
@@ -30,7 +30,7 @@ with open("data/debug_run.csv", encoding="utf-8") as eval_data:
 
 model_choice = "qwen3:8b"
 reasoning = False
-eval_path = "eval_results/eval_results.csv"
+eval_path = "data/eval_results/eval_results.csv"
 
 model = ChatOllama(
     model=model_choice,
@@ -62,12 +62,9 @@ builder = StateGraph(MessagesState)
 
 builder.add_node("agent", agent)
 
-
 builder.add_edge(START, "agent")
 
-
 graph = builder.compile()
-
 
 if __name__ == "__main__":
     NANOSECOND_CONVERSION = 1000000000

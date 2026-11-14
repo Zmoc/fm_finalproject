@@ -1,4 +1,5 @@
 import csv
+import re
 from typing import TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -13,13 +14,19 @@ with open("data/test_data/debug_run.csv", encoding="utf-8") as eval_data:
     for index, line in enumerate(reader):
         narrative = line["narrative"]
         question = line["question"]
-        choices = line["choices"]
+        choices = re.findall(r"(\w+)", line["choices"])
+        hypothesis_a = choices[0]
+        hypothesis_b = choices[1]
+
         correct_answer = line["answer_choice"]
 
         answer_prompt = f"ANSWER: {correct_answer}"
         prompt_dict = {
             "index": index,
-            "hypothesis": f"The murderer is {choices[0]}",
+            "hypothesis": [
+                f"The murderer is {hypothesis_a}",
+                f"The murderer is {hypothesis_b}",
+            ],
             "narrative": narrative,
             "correct_answer": answer_prompt,
         }
@@ -43,7 +50,20 @@ def evidence_extraction(state: State):
         [
             SystemMessage(
                 content=(
-                    "You are a detective. Generate an argument for given hypothesis using information from the supplied narrative. Define your evidence for each individual argument."
+                    "You are a detective using the Analysis of Competing Hypotheses method. Generate individual arguments for the given hypothesis using information from the supplied narrative."
+                    "Specify the evidence used for each individual argument.\n\n"
+                    "Only generate arguments and evidence for the given hypothesis. Do not generate for the opposite hypothesis.\n\n"
+                    "Use the format:\n\n"
+                    "Argument A: ...\n\n"
+                    "Evidence A1: ...\n\n"
+                    "Evidence A2: ...\n\n"
+                    "Argument B: ...\n\n"
+                    "Evidence B1: ...\n\n"
+                    "Evidence B2: ...\n\n"
+                    "..."
+                    "Argument Z: ...\n\n"
+                    "Evidence Z1: ...\n\n"
+                    "Evidence Z2: ...\n\n"
                 )
             ),
             HumanMessage(
@@ -54,7 +74,7 @@ def evidence_extraction(state: State):
             ),
         ]
     )
-
+    print(response.content)
     return {"extraction": response.content}
 
 
@@ -63,7 +83,12 @@ def diagnosticity(state: State):
         [
             SystemMessage(
                 content=(
-                    "You are an intelligence analyst. Examine the given piece of evidence and determine its diagnosticity for the given hypothesis."
+                    "You are an intelligence analyst using the Analysis of Competing Hypotheses method. Examine the given arguments and supporting evidence and determine how useful each is in determining the likelihood of the given hypothesis."
+                    "Use the format, where [ARGUMENT] and [EVIDENCE] are the respective items and [SCORE] is a value from 1-5, with 1 being very low usefulness, 2 being low, 3 being moderate, 4 being high and 5 being very high:\n\n"
+                    "[ARGUMENT]: [SCORE]\n\n"
+                    "[EVIDENCE]: [SCORE]\n\n"
+                    "...\n\n"
+                    "[EVIDENCE]: [SCORE]\n\n"
                 )
             ),
             HumanMessage(
@@ -74,7 +99,7 @@ def diagnosticity(state: State):
             ),
         ]
     )
-
+    print(response.content)
     return {"diagnostic_score": response.content}
 
 
@@ -83,7 +108,9 @@ def analysis(state: State):
         [
             SystemMessage(
                 content=(
-                    "You are a detective attempting to solve a case. Based on the given evidence, determine the likelihood that the hypothesis is correct."
+                    "You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method."
+                    "Based on the given evidence, determine the likelihood that the hypothesis is correct."
+                    "Give the likelihood as a value on a scale of 1-5 with 1 being Very Unlikely, 2 as Unlikely, 3 as Likely, 4 as Highly Likely, and 5 as Very Highly Likely."
                 )
             ),
             HumanMessage(
@@ -116,7 +143,7 @@ for story in test_list:
     hypothesis = story["hypothesis"]
     narrative = story["narrative"]
     label = story["correct_answer"]
-    print(f"Running Story {index}")
+    print(f"Running Story {index}, Hypothesis: {hypothesis}")
     result = graph.invoke(
         {
             "hypothesis": hypothesis,

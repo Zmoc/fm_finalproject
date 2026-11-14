@@ -6,68 +6,97 @@ from langgraph.graph import END, START, StateGraph
 
 
 class State(TypedDict):
-    question: str
-    research_notes: str
-    answer: str
+    hypothesis: str
+    narrative: str
+    extraction: str
+    likelihood_hypothesis: str
 
 
-model = ChatOllama(model="qwen3:8b", temperature=0)
+model_choice = "qwen3:8b"
+reasoning = False
+model = ChatOllama(model=model_choice, temperature=0, reasoning=reasoning)
 
 
-def researcher(state: State):
+def evidence_extraction(state: State):
     response = model.invoke(
         [
             SystemMessage(
                 content=(
-                    "You are a researcher. Produce concise factual notes "
-                    "that help answer the question. Flag uncertainty."
-                )
-            ),
-            HumanMessage(content=state["question"]),
-        ]
-    )
-
-    return {"research_notes": response.content}
-
-
-def writer(state: State):
-    response = model.invoke(
-        [
-            SystemMessage(
-                content=(
-                    "You are a writer. Answer the user's question using the "
-                    "provided notes. Preserve any uncertainty."
+                    "You are a detective. Generate an argument for given hypothesis using information from the supplied narrative. Define your evidence for each individual argument."
                 )
             ),
             HumanMessage(
                 content=(
-                    f"Question:\n{state['question']}\n\n"
-                    f"Research notes:\n{state['research_notes']}"
+                    f"Hypothesis: {state['hypothesis']}\n\n"
+                    f"Narrative: {state['narrative']}"
                 )
             ),
         ]
     )
 
-    return {"answer": response.content}
+    return {"extraction": response.content}
+
+
+def diagnosticity(state: State):
+    response = model.invoke(
+        [
+            SystemMessage(
+                content=(
+                    "You are an intelligence analyst. Examine the given piece of evidence and determine its diagnosticity for the given hypothesis."
+                )
+            ),
+            HumanMessage(
+                content=(
+                    f"Hypothesis: {state['hypothesis']}\n\n"
+                    f"Evidence: {state['extraction']}"
+                )
+            ),
+        ]
+    )
+
+    return {"diagnostic_score": response.content}
+
+
+def analysis(state: State):
+    response = model.invoke(
+        [
+            SystemMessage(
+                content=(
+                    "You are a detective attempting to solve a case. Based on the given evidence, determine the likelihood that the hypothesis is correct."
+                )
+            ),
+            HumanMessage(
+                content=(
+                    f"Hypothesis:\n{state['hypothesis']}\n\n"
+                    f"Arguments and Evidence:\n{state['extraction']}"
+                )
+            ),
+        ]
+    )
+
+    return {"likelihood_hypothesis": response.content}
 
 
 builder = StateGraph(State)
 
-builder.add_node("researcher", researcher)
-builder.add_node("writer", writer)
+builder.add_node("extraction", evidence_extraction)
+builder.add_node("diagnosticity", diagnosticity)
+builder.add_node("analysis", analysis)
 
-builder.add_edge(START, "researcher")
-builder.add_edge("researcher", "writer")
-builder.add_edge("writer", END)
+builder.add_edge(START, "extraction")
+builder.add_edge("extraction", "diagnosticity")
+builder.add_edge("diagnosticity", "analysis")
+builder.add_edge("analysis", END)
 
 graph = builder.compile()
 
 result = graph.invoke(
     {
-        "question": "Why do solar panels produce less power when hot?",
-        "research_notes": "",
-        "answer": "",
+        "hypothesis": "Why do solar panels produce less power when hot?",
+        "narrative": "",
+        "extraction": "",
+        "likelihood_hypothesis": "",
     }
 )
 
-print(result["answer"])
+print(result["likelihood_hypothesis"])

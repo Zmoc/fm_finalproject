@@ -173,37 +173,29 @@ eval_path = "data/eval_results/eval_results.csv"
 eval_list = []
 for story in test_list:
     index = story["index"]
-    hypothesisA = story["hypothesis"][0]
-    hypothesisB = story["hypothesis"][1]
     narrative = story["narrative"]
     label = story["correct_answer"].split(" ")[-1]
     result_list = []
+    evals = []
+    results = []
 
-    print(f"Running Story {index}, Hypothesis: {hypothesisA}")
-    resultA = graph.invoke(
-        {
-            "hypothesis": hypothesisA,
-            "narrative": narrative,
-            "extraction": "",
-            "diagnostic_score": "",
-            "likelihood_hypothesis": "",
-            "model_calls": [],
-        }
-    )
-    evalA = ast.literal_eval(resultA["likelihood_hypothesis"])
+    for hypothesis in story["hypothesis"]:
+        print(f"Running Story {index}, Hypothesis: {hypothesis}")
+        result = graph.invoke(
+            {
+                "hypothesis": hypothesis,
+                "narrative": narrative,
+                "extraction": "",
+                "diagnostic_score": "",
+                "likelihood_hypothesis": "",
+                "model_calls": [],
+            }
+        )
+        evals.append(ast.literal_eval(result["likelihood_hypothesis"]))
+        results.append(result)
 
-    print(f"Running Story {index}, Hypothesis: {hypothesisB}")
-    resultB = graph.invoke(
-        {
-            "hypothesis": hypothesisB,
-            "narrative": narrative,
-            "extraction": "",
-            "diagnostic_score": "",
-            "likelihood_hypothesis": "",
-            "model_calls": [],
-        }
-    )
-    evalB = ast.literal_eval(resultB["likelihood_hypothesis"])
+    evalA = evals[0]
+    evalB = evals[1]
 
     if evalA["likelihood"] > evalB["likelihood"]:
         generated_answer = evalA["suspect"]
@@ -221,10 +213,9 @@ for story in test_list:
     eval_count = 0.0
     eval_duration = 0.0
 
-    for result in [resultA, resultB]:
+    for result in results:
         for call in result["model_calls"]:
             prefix = call["response_metadata"]
-            print(prefix)
 
             total_duration += prefix["total_duration"] / NANOSECOND_CONVERSION
             load_duration += prefix["load_duration"] / NANOSECOND_CONVERSION

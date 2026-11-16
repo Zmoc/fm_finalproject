@@ -21,7 +21,7 @@ with open("data/test_data/debug_run.csv", encoding="utf-8") as eval_data:
         answer_prompt = f"ANSWER: {correct_answer}"
         prompt_dict = {
             "index": index,
-            "story_context": prompt,
+            "narrative": prompt,
             "correct_answer": answer_prompt,
         }
         test_list.append(prompt_dict)
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     eval_list = []
     for story in test_list:
         index = story["index"]
-        test_input = story["story_context"]
+        test_input = story["narrative"]
         label = story["correct_answer"]
         print(f"Running Story {index}")
 

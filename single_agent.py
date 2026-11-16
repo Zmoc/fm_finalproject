@@ -1,48 +1,21 @@
-import csv
-import time
-
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import START, MessagesState, StateGraph
 
-from eval_suite import eval
-
-test_list = []
-
-with open("data/test_data/debug_run.csv", encoding="utf-8") as eval_data:
-    reader = csv.DictReader(eval_data, delimiter=",")
-
-    for index, line in enumerate(reader):
-        narrative = line["narrative"]
-        question = line["question"]
-        choices = line["choices"]
-        correct_answer = line["answer_choice"]
-
-        prompt = f"{narrative}\n\n{question}\n\nYour choices are: {choices}"
-        answer_prompt = f"ANSWER: {correct_answer}"
-        prompt_dict = {
-            "index": index,
-            "story_context": prompt,
-            "correct_answer": answer_prompt,
-        }
-        test_list.append(prompt_dict)
-
-
 model_choice = "qwen3:8b"
 reasoning = False
-eval_path = "data/eval_results/eval_results.csv"
-
-model = ChatOllama(
-    model=model_choice,
-    temperature=0,
-    reasoning=reasoning,
-    # client_kwargs={"timeout": 60 * 3},
-)
 
 
-# This is the single agent node.
-def agent(state: MessagesState):
-    response = model.invoke(
+def create_model(model_choice, reasoning):
+    return ChatOllama(
+        model=model_choice,
+        temperature=0,
+        reasoning=reasoning,
+    )
+
+
+def agent(state: MessagesState, model_choice=model_choice, reasoning=reasoning):
+    response = create_model(model_choice, reasoning).invoke(
         [
             SystemMessage(
                 content=(
@@ -58,56 +31,8 @@ def agent(state: MessagesState):
     return {"messages": [response]}
 
 
-builder = StateGraph(MessagesState)
-
-builder.add_node("agent", agent)
-
-builder.add_edge(START, "agent")
-
-graph = builder.compile()
-
-if __name__ == "__main__":
-    NANOSECOND_CONVERSION = 1000000000
-    timestamp = time.time()
-    eval_list = []
-    for story in test_list:
-        index = story["index"]
-        test_input = story["story_context"]
-        label = story["correct_answer"]
-        print(f"Running Story {index}")
-
-        result = graph.invoke(
-            {"messages": [HumanMessage(content=test_input)]},
-            config={"recursion_limit": 10},
-        )
-
-        response = result["messages"][1]
-        content = response.content
-        generated_answer = content.split("\n")[-1]
-        test_result = label == generated_answer
-
-        done_reason = response.response_metadata.get("done_reason")
-        total_duration = response.response_metadata.get("total_duration")
-        load_duration = response.response_metadata.get("load_duration")
-        prompt_eval_count = response.response_metadata.get("prompt_eval_count")
-        prompt_eval_duration = response.response_metadata.get("prompt_eval_duration")
-        eval_count = response.response_metadata.get("eval_count")
-        eval_duration = response.response_metadata.get("eval_duration")
-
-        metadata = {
-            "index": index,
-            "label": label,
-            "generated_answer": generated_answer,
-            "test_result": test_result,
-            "done_reason": done_reason,
-            "total_duration": total_duration / NANOSECOND_CONVERSION,
-            "load_duration": load_duration / NANOSECOND_CONVERSION,
-            "prompt_eval_count": prompt_eval_count,
-            "prompt_eval_duration": prompt_eval_duration / NANOSECOND_CONVERSION,
-            "eval_count": eval_count,
-            "eval_duration": eval_duration / NANOSECOND_CONVERSION,
-        }
-
-        print(f"Completed: {metadata}")
-        eval_list.append(metadata)
-    eval(eval_list, timestamp, model_choice, reasoning, "single", eval_path)
+def graph():
+    builder = StateGraph(MessagesState)
+    builder.add_node("agent", agent)
+    builder.add_edge(START, "agent")
+    return builder.compile()

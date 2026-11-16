@@ -8,6 +8,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
 
+from eval_suite import accuracy_score
+
 test_list = []
 
 with open("data/test_data/debug_run.csv", encoding="utf-8") as eval_data:
@@ -165,6 +167,9 @@ def graph():
 graph = graph()
 NANOSECOND_CONVERSION = 1000000000
 
+story_count = len(test_list)
+positive_count = 0.0
+
 for story in test_list:
     index = story["index"]
     hypothesisA = story["hypothesis"][0]
@@ -172,6 +177,7 @@ for story in test_list:
     narrative = story["narrative"]
     label = story["correct_answer"].split(" ")[-1]
     result_list = []
+
     print(f"Running Story {index}, Hypothesis: {hypothesisA}")
     resultA = graph.invoke(
         {
@@ -207,6 +213,11 @@ for story in test_list:
     else:
         final_suspect = "Indecisive"
 
-    print(
-        f"Final Suspect: {final_suspect}, Label: {label}, Match: {final_suspect == label}"
-    )
+    test_result = final_suspect == label
+    if test_result == True:
+        positive_count += 1
+
+    print(f"Final Suspect: {final_suspect}, Label: {label}, Match: {test_result}")
+
+accuracy = positive_count / story_count
+print(f"Overall Accuracy: {accuracy}")

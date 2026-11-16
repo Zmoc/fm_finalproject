@@ -3,7 +3,7 @@ from langchain_ollama import ChatOllama
 from langgraph.graph import START, MessagesState, StateGraph
 
 model_choice = "qwen3:8b"
-reasoning = True
+reasoning = False
 
 
 def create_model(model_choice, reasoning):

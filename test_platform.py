@@ -18,7 +18,7 @@ with open("data/test_data/debug_run.csv", encoding="utf-8") as eval_data:
         correct_answer = line["answer_choice"]
 
         prompt = f"{narrative}\n\n{question}\n\nYour choices are: {choices}"
-        answer_prompt = f"ANSWER: {correct_answer}"
+        answer_prompt = f"{correct_answer}"
         prompt_dict = {
             "index": index,
             "narrative": prompt,

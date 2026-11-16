@@ -1,5 +1,6 @@
 import ast
 import csv
+import json
 import operator
 import re
 import time
@@ -42,20 +43,38 @@ def multi_agent_graph(model, temperature, reasoning):
             [
                 SystemMessage(
                     content=(
-                        "You are a detective using the Analysis of Competing Hypotheses method. Generate individual arguments for the given hypothesis using information from the supplied narrative."
-                        "Specify the evidence used for each individual argument.\n\n"
-                        "Only generate arguments and evidence for the given hypothesis. Do not generate for the opposite hypothesis.\n\n"
-                        "Use the format:\n\n"
-                        "Argument A: ...\n\n"
-                        "Evidence A1: ...\n\n"
-                        "Evidence A2: ...\n\n"
-                        "Argument B: ...\n\n"
-                        "Evidence B1: ...\n\n"
-                        "Evidence B2: ...\n\n"
-                        "..."
-                        "Argument Z: ...\n\n"
-                        "Evidence Z1: ...\n\n"
-                        "Evidence Z2: ...\n\n"
+                        """
+                        You are a detective using the Analysis of Competing Hypotheses method.
+                        Make a list of significant evidence and arguments for and against the given hypothesis.
+
+                        The output should be in JSON format where each argument is listed with its supporting evidence.
+                        Only output the JSON file. Do not output any other text. Use the following format:
+
+                        {
+                            "arguments_for": {
+                                "argument_id": {
+                                    "argument": "argument_text",
+                                    "evidence": [
+                                        {
+                                            "evidence_id": "evidence_text",
+                                            ...
+                                        }
+                                    ]
+                                }
+                            },
+                            "arguments_against": {
+                                "argument_id": {
+                                    "argument": "argument_text",
+                                    "evidence": [
+                                        {
+                                            "evidence_id": "evidence_text",
+                                            ...
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                        """
                     )
                 ),
                 HumanMessage(
@@ -77,22 +96,71 @@ def multi_agent_graph(model, temperature, reasoning):
             [
                 SystemMessage(
                     content=(
-                        "You are an intelligence analyst using the Analysis of Competing Hypotheses method. Examine the given arguments and supporting evidence and determine how useful each is in determining the likelihood of the given hypothesis.\n\n"
-                        "Use the format, where [ARGUMENT] and [EVIDENCE] are the respective items and [SCORE] is a value from 1-5, with 1 being very low usefulness, 2 being low, 3 being moderate, 4 being high and 5 being very high:\n\n"
-                        "[ARGUMENT]: [SCORE]\n\n"
-                        "[EVIDENCE]: [SCORE]\n\n"
-                        "...\n\n"
-                        "[EVIDENCE]: [SCORE]\n\n"
+                        """
+                        You are an intelligence analyst using the Analysis of Competing Hypotheses method.
+                        Examine the given arguments and supporting evidence and determine the diagnosticity of each.
+                        Diagnosticity refers to how useful the information is in determining the likelihood of the stated hypothesis.
+
+                        Assign a score to each argument and individual piece of evidence from 1-5 where 1 is least diagnostic and 5 is the most diagnostic.
+                        A piece of evidence that is likely to be seen regardless of the hypothesis being True or False has a diagnostic value of 1.
+                        A piece of evidence that can only appear if the hypothesis is exclusively True or False (but not both) has a diagnostic value of 5.
+
+                        Output your scores in JSON format where each argument and supporting evidence is listed with their scores.
+                        Only output the JSON file. Do not output any other text. Use the following format:
+
+                        {
+                            "arguments_for": {
+                                "argument_id": {
+                                    "argument": "argument_text",
+                                    "argument_diagnosticity_score": "diagnosticity_score",
+                                    "evidence": [
+                                        {
+                                            "evidence_id": "evidence_text",
+                                            "evidence_diagnosticity_score": "diagnosticity_score"
+                                        }
+                                    ]
+                                }
+                            },
+                            "arguments_against": {
+                                "argument_id": {
+                                    "argument": "argument_text",
+                                    "argument_diagnosticity_score": "diagnosticity_score",
+                                    "evidence": [
+                                        {
+                                            "evidence_id": "evidence_text",
+                                            "evidence_diagnosticity_score": "diagnosticity_score"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                        """
                     )
                 ),
                 HumanMessage(
                     content=(
                         f"Hypothesis: {state['hypothesis']}\n\n"
-                        f"Evidence: {state['extraction']}"
+                        f"Arguments and Evidence: {state['extraction']}"
                     )
                 ),
             ]
         )
+
+        scores = json.loads(response.content)
+        key_evidence = []
+        argument_threshold = 5
+        evidence_threshold = 5
+        for key in scores:
+            for argument_data in scores[key].values():
+                if argument_data["argument_diagnosticity_score"] >= argument_threshold:
+                    for evidence_data in argument_data["evidence"]:
+                        if (
+                            evidence_data["evidence_diagnosticity_score"]
+                            >= evidence_threshold
+                        ):
+                            # print(evidence_data["evidence_id"], evidence_data["evidence"])
+                            key_evidence.append(evidence_data["evidence"])
+        print(key_evidence)
 
         return {
             "diagnostic_score": response.content,
@@ -105,7 +173,7 @@ def multi_agent_graph(model, temperature, reasoning):
                 SystemMessage(
                     content=(
                         "You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method.\n\n"
-                        "Based on the given evidence, determine the likelihood that the hypothesis is correct.\n\n"
+                        "Based on the given evidence, determine the likelihood that the stated hypothesis is correct.\n\n"
                         "Give the likelihood as a value on a scale of 1-5 with 1 being Very Unlikely, 2 as Unlikely, 3 as Likely, 4 as Highly Likely, and 5 as Very Highly Likely.\n\n"
                         "Output your final answer as a dictionary, {'suspect':SUSPECT, 'likelihood':LIKELIHOOD}, where SUSPECT is the suspect and LIKELIHOOD is the likelihood score value.\n\n"
                         "Output only the dictionary, do not include any other text or explanation.\n\n"
@@ -129,6 +197,7 @@ def multi_agent_graph(model, temperature, reasoning):
     builder.add_node("extraction", evidence_extraction)
     builder.add_node("diagnosticity", diagnosticity)
     builder.add_node("analysis", analysis)
+
     builder.add_edge(START, "extraction")
     builder.add_edge("extraction", "diagnosticity")
     builder.add_edge("diagnosticity", "analysis")

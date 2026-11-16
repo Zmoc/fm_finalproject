@@ -16,9 +16,9 @@ def single_agent_graph(model, temperature, reasoning):
                 SystemMessage(
                     content=(
                         "Answer the following multiple choice question.\n"
-                        "The last line of your response should be of the following format: 'ANSWER: [NAME]' (without quotes) where [NAME] is the chosen suspect.\n"
                         "Think step by step before answering.\n"
                         "Clearly specify the evidence that you are using to justify your answer.\n"
+                        "The last line of your response should be only the name of the chosen suspect, no other words or descriptions.\n"
                     )
                 ),
                 *state["messages"],

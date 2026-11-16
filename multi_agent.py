@@ -225,16 +225,19 @@ for story in test_list:
     eval_count = 0.0
     eval_duration = 0.0
 
-    for call in resultA["model_calls"]:
-        prefix = call["response_metadata"]
-        print(prefix)
+    for result in [resultA, resultB]:
+        for call in result["model_calls"]:
+            prefix = call["response_metadata"]
+            print(prefix)
 
-        total_duration += prefix["total_duration"] / NANOSECOND_CONVERSION
-        load_duration += prefix["load_duration"] / NANOSECOND_CONVERSION
-        prompt_eval_count += prefix["prompt_eval_count"]
-        prompt_eval_duration += prefix["prompt_eval_duration"] / NANOSECOND_CONVERSION
-        eval_count += prefix["eval_count"]
-        eval_duration += prefix["eval_duration"] / NANOSECOND_CONVERSION
+            total_duration += prefix["total_duration"] / NANOSECOND_CONVERSION
+            load_duration += prefix["load_duration"] / NANOSECOND_CONVERSION
+            prompt_eval_count += prefix["prompt_eval_count"]
+            prompt_eval_duration += (
+                prefix["prompt_eval_duration"] / NANOSECOND_CONVERSION
+            )
+            eval_count += prefix["eval_count"]
+            eval_duration += prefix["eval_duration"] / NANOSECOND_CONVERSION
 
     metadata = {
         "index": index,

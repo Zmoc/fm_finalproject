@@ -1,6 +1,7 @@
 import csv
+import operator
 import re
-from typing import TypedDict
+from typing import Annotated, Any, TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
@@ -37,7 +38,20 @@ class State(TypedDict):
     hypothesis: str
     narrative: str
     extraction: str
+    diagnostic_score: str
     likelihood_hypothesis: str
+    model_calls: Annotated[list[dict[str, Any]], operator.add]
+
+
+def capture_metadata(agent_name, response):
+    return {
+        "agent": agent_name,
+        "message_id": response.id,
+        "response_metadata": dict(response.response_metadata),
+        "usage_metadata": (
+            dict(response.usage_metadata) if response.usage_metadata is not None else {}
+        ),
+    }
 
 
 model_choice = "qwen3:8b"
@@ -74,8 +88,10 @@ def evidence_extraction(state: State):
             ),
         ]
     )
-    print(response.content)
-    return {"extraction": response.content}
+    return {
+        "extraction": response.content,
+        "model_calls": [capture_metadata("evidence_extraction", response)],
+    }
 
 
 def diagnosticity(state: State):
@@ -99,8 +115,10 @@ def diagnosticity(state: State):
             ),
         ]
     )
-    print(response.content)
-    return {"diagnostic_score": response.content}
+    return {
+        "diagnostic_score": response.content,
+        "model_calls": [capture_metadata("diagnosticity", response)],
+    }
 
 
 def analysis(state: State):
@@ -122,7 +140,10 @@ def analysis(state: State):
         ]
     )
 
-    return {"likelihood_hypothesis": response.content}
+    return {
+        "likelihood_hypothesis": response.content,
+        "model_calls": [capture_metadata("analysis", response)],
+    }
 
 
 builder = StateGraph(State)
@@ -149,8 +170,10 @@ for story in test_list:
             "hypothesis": hypothesis,
             "narrative": narrative,
             "extraction": "",
+            "diagnostic_score": "",
             "likelihood_hypothesis": "",
+            "model_calls": [],
         }
     )
 
-    print(result["likelihood_hypothesis"])
+    print(result["model_calls"])

@@ -1,3 +1,4 @@
+import ast
 import csv
 import operator
 import re
@@ -99,7 +100,7 @@ def diagnosticity(state: State):
         [
             SystemMessage(
                 content=(
-                    "You are an intelligence analyst using the Analysis of Competing Hypotheses method. Examine the given arguments and supporting evidence and determine how useful each is in determining the likelihood of the given hypothesis."
+                    "You are an intelligence analyst using the Analysis of Competing Hypotheses method. Examine the given arguments and supporting evidence and determine how useful each is in determining the likelihood of the given hypothesis.\n\n"
                     "Use the format, where [ARGUMENT] and [EVIDENCE] are the respective items and [SCORE] is a value from 1-5, with 1 being very low usefulness, 2 being low, 3 being moderate, 4 being high and 5 being very high:\n\n"
                     "[ARGUMENT]: [SCORE]\n\n"
                     "[EVIDENCE]: [SCORE]\n\n"
@@ -126,9 +127,11 @@ def analysis(state: State):
         [
             SystemMessage(
                 content=(
-                    "You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method."
-                    "Based on the given evidence, determine the likelihood that the hypothesis is correct."
-                    "Give the likelihood as a value on a scale of 1-5 with 1 being Very Unlikely, 2 as Unlikely, 3 as Likely, 4 as Highly Likely, and 5 as Very Highly Likely."
+                    "You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method.\n\n"
+                    "Based on the given evidence, determine the likelihood that the hypothesis is correct.\n\n"
+                    "Give the likelihood as a value on a scale of 1-5 with 1 being Very Unlikely, 2 as Unlikely, 3 as Likely, 4 as Highly Likely, and 5 as Very Highly Likely.\n\n"
+                    "Output your final answer as a dictionary, {'suspect':SUSPECT, 'likelihood':LIKELIHOOD}, where SUSPECT is the suspect and LIKELIHOOD is the likelihood score value.\n\n"
+                    "Output only the dictionary, do not include any other text or explanation.\n\n"
                 )
             ),
             HumanMessage(
@@ -146,28 +149,33 @@ def analysis(state: State):
     }
 
 
-builder = StateGraph(State)
+def graph():
+    builder = StateGraph(State)
+    builder.add_node("extraction", evidence_extraction)
+    builder.add_node("diagnosticity", diagnosticity)
+    builder.add_node("analysis", analysis)
+    builder.add_edge(START, "extraction")
+    builder.add_edge("extraction", "diagnosticity")
+    builder.add_edge("diagnosticity", "analysis")
+    builder.add_edge("analysis", END)
 
-builder.add_node("extraction", evidence_extraction)
-builder.add_node("diagnosticity", diagnosticity)
-builder.add_node("analysis", analysis)
+    return builder.compile()
 
-builder.add_edge(START, "extraction")
-builder.add_edge("extraction", "diagnosticity")
-builder.add_edge("diagnosticity", "analysis")
-builder.add_edge("analysis", END)
 
-graph = builder.compile()
+graph = graph()
+NANOSECOND_CONVERSION = 1000000000
 
 for story in test_list:
     index = story["index"]
-    hypothesis = story["hypothesis"]
+    hypothesisA = story["hypothesis"][0]
+    hypothesisB = story["hypothesis"][1]
     narrative = story["narrative"]
-    label = story["correct_answer"]
-    print(f"Running Story {index}, Hypothesis: {hypothesis}")
-    result = graph.invoke(
+    label = story["correct_answer"].split(" ")[-1]
+    result_list = []
+    print(f"Running Story {index}, Hypothesis: {hypothesisA}")
+    resultA = graph.invoke(
         {
-            "hypothesis": hypothesis,
+            "hypothesis": hypothesisA,
             "narrative": narrative,
             "extraction": "",
             "diagnostic_score": "",
@@ -175,5 +183,30 @@ for story in test_list:
             "model_calls": [],
         }
     )
+    evalA = ast.literal_eval(resultA["likelihood_hypothesis"])
+    print(evalA)
 
-    print(result["model_calls"])
+    print(f"Running Story {index}, Hypothesis: {hypothesisB}")
+    resultB = graph.invoke(
+        {
+            "hypothesis": hypothesisB,
+            "narrative": narrative,
+            "extraction": "",
+            "diagnostic_score": "",
+            "likelihood_hypothesis": "",
+            "model_calls": [],
+        }
+    )
+    evalB = ast.literal_eval(resultB["likelihood_hypothesis"])
+    print(evalB)
+
+    if evalA["likelihood"] > evalB["likelihood"]:
+        final_suspect = evalA["suspect"]
+    elif evalA["likelihood"] < evalB["likelihood"]:
+        final_suspect = evalB["suspect"]
+    else:
+        final_suspect = "Indecisive"
+
+    print(
+        f"Final Suspect: {final_suspect}, Label: {label}, Match: {final_suspect == label}"
+    )

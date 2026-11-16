@@ -4,7 +4,7 @@ import time
 from langchain_core.messages import HumanMessage
 
 from eval_suite import eval
-from single_agent import graph
+from single_agent import graph, model_choice, reasoning
 
 test_list = []
 
@@ -27,8 +27,8 @@ with open("data/test_data/debug_run.csv", encoding="utf-8") as eval_data:
         test_list.append(prompt_dict)
 
 
-model_choice = "qwen3:8b"
-reasoning = False
+model_choice = model_choice
+reasoning = reasoning
 eval_path = "data/eval_results/eval_results.csv"
 single_graph = graph()
 

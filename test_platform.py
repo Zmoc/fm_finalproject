@@ -53,7 +53,6 @@ if __name__ == "__main__":
         generated_answer = content.split("\n")[-1]
         test_result = label == generated_answer
 
-        done_reason = response.response_metadata.get("done_reason")
         total_duration = response.response_metadata.get("total_duration")
         load_duration = response.response_metadata.get("load_duration")
         prompt_eval_count = response.response_metadata.get("prompt_eval_count")
@@ -66,7 +65,6 @@ if __name__ == "__main__":
             "label": label,
             "generated_answer": generated_answer,
             "test_result": test_result,
-            "done_reason": done_reason,
             "total_duration": total_duration / NANOSECOND_CONVERSION,
             "load_duration": load_duration / NANOSECOND_CONVERSION,
             "prompt_eval_count": prompt_eval_count,

@@ -2,13 +2,14 @@ import ast
 import csv
 import operator
 import re
+import time
 from typing import Annotated, Any, TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
 
-from eval_suite import accuracy_score
+from eval_suite import eval
 
 test_list = []
 
@@ -166,10 +167,12 @@ def graph():
 
 graph = graph()
 NANOSECOND_CONVERSION = 1000000000
+timestamp = time.time()
+eval_path = "data/eval_results/eval_results.csv"
 
 story_count = len(test_list)
 positive_count = 0.0
-
+eval_list = []
 for story in test_list:
     index = story["index"]
     hypothesisA = story["hypothesis"][0]
@@ -190,7 +193,6 @@ for story in test_list:
         }
     )
     evalA = ast.literal_eval(resultA["likelihood_hypothesis"])
-    print(evalA)
 
     print(f"Running Story {index}, Hypothesis: {hypothesisB}")
     resultB = graph.invoke(
@@ -204,20 +206,48 @@ for story in test_list:
         }
     )
     evalB = ast.literal_eval(resultB["likelihood_hypothesis"])
-    print(evalB)
 
     if evalA["likelihood"] > evalB["likelihood"]:
-        final_suspect = evalA["suspect"]
+        generated_answer = evalA["suspect"]
     elif evalA["likelihood"] < evalB["likelihood"]:
-        final_suspect = evalB["suspect"]
+        generated_answer = evalB["suspect"]
     else:
-        final_suspect = "Indecisive"
+        generated_answer = "Indecisive"
 
-    test_result = final_suspect == label
+    test_result = generated_answer == label
     if test_result == True:
         positive_count += 1
 
-    print(f"Final Suspect: {final_suspect}, Label: {label}, Match: {test_result}")
+    total_duration = 0.0
+    load_duration = 0.0
+    prompt_eval_count = 0.0
+    prompt_eval_duration = 0.0
+    eval_count = 0.0
+    eval_duration = 0.0
 
-accuracy = positive_count / story_count
-print(f"Overall Accuracy: {accuracy}")
+    for call in resultA["model_calls"]:
+        prefix = call["response_metadata"]
+        print(prefix)
+
+        total_duration += prefix["total_duration"] / NANOSECOND_CONVERSION
+        load_duration += prefix["load_duration"] / NANOSECOND_CONVERSION
+        prompt_eval_count += prefix["prompt_eval_count"]
+        prompt_eval_duration += prefix["prompt_eval_duration"] / NANOSECOND_CONVERSION
+        eval_count += prefix["eval_count"]
+        eval_duration += prefix["eval_duration"] / NANOSECOND_CONVERSION
+
+    metadata = {
+        "index": index,
+        "label": label,
+        "generated_answer": generated_answer,
+        "test_result": test_result,
+        "total_duration": total_duration,
+        "load_duration": load_duration,
+        "prompt_eval_count": prompt_eval_count,
+        "prompt_eval_duration": prompt_eval_duration,
+        "eval_count": eval_count,
+        "eval_duration": eval_duration,
+    }
+    print(f"Completed: {metadata}")
+    eval_list.append(metadata)
+eval(eval_list, timestamp, model_choice, reasoning, "multi", eval_path)

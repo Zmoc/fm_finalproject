@@ -13,12 +13,15 @@ if __name__ == "__main__":
 
     single_agent_run = False
     multi_agent_run = True
+    agent_type = ""
 
     if single_agent_run == True:
         single_graph = single_agent_graph(model_choice, 0, reasoning)
+        agent_type = "single"
 
     if multi_agent_run == True:
         multi_graph = multi_agent_graph(model_choice, 0, reasoning)
+        agent_type = "multi"
 
     for story in test_list:
         index = story["index"]
@@ -40,4 +43,5 @@ if __name__ == "__main__":
         eval_list = metadata_extraction(
             index, label, results, generated_answer, test_result
         )
-    eval(eval_list, timestamp, model_choice, reasoning, "single", eval_path)
+
+    eval(eval_list, timestamp, model_choice, reasoning, agent_type, eval_path)

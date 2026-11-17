@@ -149,7 +149,7 @@ def multi_agent_graph(model, temperature, reasoning):
         scores = json.loads(response.content)
         key_evidence = []
         argument_threshold = 5
-        evidence_threshold = 5
+        evidence_threshold = 4
         for key in scores:
             for argument_data in scores[key].values():
                 if argument_data["argument_diagnosticity_score"] >= argument_threshold:
@@ -158,12 +158,10 @@ def multi_agent_graph(model, temperature, reasoning):
                             evidence_data["evidence_diagnosticity_score"]
                             >= evidence_threshold
                         ):
-                            # print(evidence_data["evidence_id"], evidence_data["evidence"])
                             key_evidence.append(evidence_data["evidence"])
-        print(key_evidence)
 
         return {
-            "diagnostic_score": response.content,
+            "diagnostic_score": key_evidence,
             "model_calls": [capture_metadata("diagnosticity", response)],
         }
 
@@ -172,17 +170,21 @@ def multi_agent_graph(model, temperature, reasoning):
             [
                 SystemMessage(
                     content=(
-                        "You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method.\n\n"
-                        "Based on the given evidence, determine the likelihood that the stated hypothesis is correct.\n\n"
-                        "Give the likelihood as a value on a scale of 1-5 with 1 being Very Unlikely, 2 as Unlikely, 3 as Likely, 4 as Highly Likely, and 5 as Very Highly Likely.\n\n"
-                        "Output your final answer as a dictionary, {'suspect':SUSPECT, 'likelihood':LIKELIHOOD}, where SUSPECT is the suspect and LIKELIHOOD is the likelihood score value.\n\n"
-                        "Output only the dictionary, do not include any other text or explanation.\n\n"
+                        """
+                        You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method.
+                        Based the key evidence, determine the likelihood that the stated hypothesis is correct.
+
+                        Give the likelihood as a value on a scale of 1-5 with 1 being Very Unlikely and 5 as Very Highly Likely.
+                        Output your final answer as a dictionary: 
+                        
+                        Only output the dictionary. Do not output any other text. Use the following format: {'suspect':suspect_name, 'likelihood':likelihood_score}
+                        """
                     )
                 ),
                 HumanMessage(
                     content=(
                         f"Hypothesis:\n{state['hypothesis']}\n\n"
-                        f"Arguments and Evidence:\n{state['extraction']}"
+                        f"Key Evidence:\n{state['diagnostic_score']}"
                     )
                 ),
             ]

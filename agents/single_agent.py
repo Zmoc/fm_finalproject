@@ -5,6 +5,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import START, StateGraph
 
+from eval_helpers.eval_suite import capture_metadata
+
 
 def single_agent_graph(model, temperature, reasoning):
     class State(TypedDict):
@@ -13,18 +15,6 @@ def single_agent_graph(model, temperature, reasoning):
         choices: str
         messages: str
         model_calls: Annotated[list[dict[str, Any]], operator.add]
-
-    def capture_metadata(agent_name, response):
-        return {
-            "agent": agent_name,
-            "message_id": response.id,
-            "response_metadata": dict(response.response_metadata),
-            "usage_metadata": (
-                dict(response.usage_metadata)
-                if response.usage_metadata is not None
-                else {}
-            ),
-        }
 
     model = ChatOllama(
         model=model,
@@ -40,8 +30,10 @@ def single_agent_graph(model, temperature, reasoning):
                         """
                         Answer the following multiple choice question.
                         Think step by step before answering.
+                        
                         Clearly specify the evidence that you are using to justify your answer.
                         If neither choice seems likely, output "Indecisive"
+
                         Output only the name of the chosen suspect or Indecisive, no other words, descriptions, or formatting.
                         """
                     )
@@ -66,13 +58,13 @@ def single_agent_graph(model, temperature, reasoning):
     return builder.compile()
 
 
-def single_agent_invoke(single_graph, story, index, narrative, results):
+def single_agent_invoke(graph, story, index, narrative, results):
     question = story["question"]
     choices = story["choices"]
 
     print(f"Running Story {index}")
 
-    result = single_graph.invoke(
+    result = graph.invoke(
         {
             "question": question,
             "narrative": narrative,

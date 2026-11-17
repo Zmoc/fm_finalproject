@@ -7,6 +7,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
 
+from eval_helpers.eval_suite import capture_metadata
+
 
 def multi_agent_graph(model, temperature, reasoning):
     class State(TypedDict):
@@ -16,18 +18,6 @@ def multi_agent_graph(model, temperature, reasoning):
         diagnostic_score: str
         likelihood_hypothesis: str
         model_calls: Annotated[list[dict[str, Any]], operator.add]
-
-    def capture_metadata(agent_name, response):
-        return {
-            "agent": agent_name,
-            "message_id": response.id,
-            "response_metadata": dict(response.response_metadata),
-            "usage_metadata": (
-                dict(response.usage_metadata)
-                if response.usage_metadata is not None
-                else {}
-            ),
-        }
 
     model = ChatOllama(model=model, temperature=temperature, reasoning=reasoning)
 
@@ -207,12 +197,13 @@ def multi_agent_graph(model, temperature, reasoning):
     return builder.compile()
 
 
-def multi_agent_invoke(multi_graph, story, index, narrative, results):
+def multi_agent_invoke(graph, story, index, narrative, results):
     evals = []
 
     for hypothesis in story["hypothesis"]:
         print(f"Running Story {index}, Hypothesis: {hypothesis}")
-        result = multi_graph.invoke(
+
+        result = graph.invoke(
             {
                 "hypothesis": hypothesis,
                 "narrative": narrative,

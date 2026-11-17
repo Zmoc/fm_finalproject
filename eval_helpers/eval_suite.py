@@ -46,6 +46,17 @@ def eval(eval_list, timestamp, model, thinking, model_type, eval_path):
             writer.writerows(eval_metadata)
 
 
+def capture_metadata(agent_name, response):
+    return {
+        "agent": agent_name,
+        "message_id": response.id,
+        "response_metadata": dict(response.response_metadata),
+        "usage_metadata": (
+            dict(response.usage_metadata) if response.usage_metadata is not None else {}
+        ),
+    }
+
+
 def metadata_extraction(index, label, results, generated_answer, test_result):
     eval_list = []
     NANOSECOND_CONVERSION = 1000000000

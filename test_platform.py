@@ -1,8 +1,8 @@
 import time
 
-from eval_suite import eval, generate_test_list, metadata_extraction
-from multi_agent import multi_agent_graph, multi_agent_invoke
-from single_agent import single_agent_graph, single_agent_invoke
+from agents.multi_agent import multi_agent_graph, multi_agent_invoke
+from agents.single_agent import single_agent_graph, single_agent_invoke
+from eval_helpers.eval_suite import eval, generate_test_list, metadata_extraction
 
 if __name__ == "__main__":
     test_list = generate_test_list()

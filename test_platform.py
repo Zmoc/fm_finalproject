@@ -73,6 +73,28 @@ def generate_test_list():
     return test_list
 
 
+def single_agent_invoke(single_graph, story, index, narrative, results):
+    question = story["question"]
+    choices = story["choices"]
+
+    print(f"Running Story {index}")
+
+    result = single_graph.invoke(
+        {
+            "question": question,
+            "narrative": narrative,
+            "choices": choices,
+            "messages": "",
+            "model_calls": [],
+        }
+    )
+    results.append(result)
+
+    response = result["messages"][0]
+    generated_answer = response.content.split("\n")[0]
+    return generated_answer
+
+
 if __name__ == "__main__":
     test_list = generate_test_list()
     model_choice = "qwen3:8b"
@@ -86,28 +108,11 @@ if __name__ == "__main__":
         index = story["index"]
         narrative = story["narrative"]
         label = story["correct_answer"]
-
-        question = story["question"]
-        choices = story["choices"]
         results = []
-        print(f"Running Story {index}")
-
-        result = single_graph.invoke(
-            {
-                "question": question,
-                "narrative": narrative,
-                "choices": choices,
-                "messages": "",
-                "model_calls": [],
-            }
+        generated_answer = single_agent_invoke(
+            single_graph, story, index, narrative, results
         )
-        results.append(result)
-
-        response = result["messages"][0]
-        metadata = response.response_metadata
-        generated_answer = response.content.split("\n")[0]
         test_result = label == generated_answer
-
         eval_list = metadata_extraction(
             index, label, results, generated_answer, test_result
         )

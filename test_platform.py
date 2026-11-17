@@ -1,7 +1,6 @@
 import csv
+import re
 import time
-
-from langchain_core.messages import HumanMessage
 
 from eval_suite import eval
 from single_agent import single_agent_graph
@@ -14,15 +13,19 @@ with open("data/test_data/initial_run.csv", encoding="utf-8") as eval_data:
     for index, line in enumerate(reader):
         narrative = line["narrative"]
         question = line["question"]
-        choices = line["choices"]
         correct_answer = line["answer_choice"]
+        choices = re.findall(r"(\w+)", line["choices"])
 
-        prompt = f"{narrative}\n\n{question}\n\nYour choices are: {choices}"
-        answer_prompt = f"{correct_answer}"
         prompt_dict = {
             "index": index,
-            "narrative": prompt,
-            "correct_answer": answer_prompt,
+            "narrative": narrative,
+            "hypothesis": [
+                f"The murderer is {choices[0]}",
+                f"The murderer is {choices[1]}",
+            ],
+            "choices": choices,
+            "question": question,
+            "correct_answer": correct_answer,
         }
         test_list.append(prompt_dict)
 
@@ -37,15 +40,21 @@ if __name__ == "__main__":
     NANOSECOND_CONVERSION = 1000000000
     timestamp = time.time()
     eval_list = []
+
     for story in test_list:
         index = story["index"]
-        test_input = story["narrative"]
         label = story["correct_answer"]
+        question = story["question"]
+        narrative = story["narrative"]
+        choices = story["choices"]
         print(f"Running Story {index}")
 
         result = single_graph.invoke(
-            {"messages": [HumanMessage(content=test_input)]},
-            config={"recursion_limit": 10},
+            {
+                "question": question,
+                "narrative": narrative,
+                "choices": choices,
+            }
         )
 
         response = result["messages"][1]

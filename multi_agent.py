@@ -266,7 +266,10 @@ for story in test_list:
         results.append(result)
 
     evalA = evals[0]
+    print(evalA)
+
     evalB = evals[1]
+    print(evalB)
 
     if evalA["likelihood"] > evalB["likelihood"]:
         generated_answer = evalA["suspect"]

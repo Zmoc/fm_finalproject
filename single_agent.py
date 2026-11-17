@@ -15,10 +15,13 @@ def single_agent_graph(model, temperature, reasoning):
             [
                 SystemMessage(
                     content=(
-                        "Answer the following multiple choice question.\n"
-                        "Think step by step before answering.\n"
-                        "Clearly specify the evidence that you are using to justify your answer.\n"
-                        "The last line of your response should be only the name of the chosen suspect, no other words or descriptions.\n"
+                        """
+                        Answer the following multiple choice question.
+                        Think step by step before answering.
+                        Clearly specify the evidence that you are using to justify your answer.
+                        If neither choice seems likely, output "Indecisive"
+                        The last line of your response should be only the name of the chosen suspect or Indecisive, no other words or descriptions.
+                        """
                     )
                 ),
                 *state["messages"],

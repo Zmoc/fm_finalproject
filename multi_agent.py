@@ -1,15 +1,11 @@
 import ast
 import json
 import operator
-import time
 from typing import Annotated, Any, TypedDict
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
-
-from eval_log import log_exception
-from eval_suite import eval, generate_test_list, metadata_extraction
 
 
 def multi_agent_graph(model, temperature, reasoning):
@@ -162,16 +158,6 @@ def multi_agent_graph(model, temperature, reasoning):
 
         except Exception as e:
             print(e)
-            log_exception(
-                index,
-                int(timestamp),
-                e,
-                model,
-                temperature,
-                reasoning,
-                response.content,
-            )
-
             key_evidence.append("None")
 
         return {
@@ -252,27 +238,3 @@ def multi_agent_invoke(multi_graph, story, index, narrative, results):
     else:
         generated_answer = "Indecisive"
     return generated_answer
-
-
-if __name__ == "__main__":
-    test_list = generate_test_list()
-    model_choice = "qwen3:8b"
-    reasoning = False
-    eval_path = "data/eval_results/eval_results.csv"
-    timestamp = time.time()
-
-    multi_graph = multi_agent_graph(model_choice, 0, reasoning)
-
-    for story in test_list:
-        index = story["index"]
-        narrative = story["narrative"]
-        label = story["correct_answer"]
-        results = []
-        generated_answer = multi_agent_invoke(
-            multi_graph, story, index, narrative, results
-        )
-        test_result = generated_answer == label
-        eval_list = metadata_extraction(
-            index, label, results, generated_answer, test_result
-        )
-    eval(eval_list, timestamp, model_choice, reasoning, "multi", eval_path)

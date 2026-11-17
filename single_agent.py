@@ -64,3 +64,25 @@ def single_agent_graph(model, temperature, reasoning):
     builder.add_node("agent", agent)
     builder.add_edge(START, "agent")
     return builder.compile()
+
+
+def single_agent_invoke(single_graph, story, index, narrative, results):
+    question = story["question"]
+    choices = story["choices"]
+
+    print(f"Running Story {index}")
+
+    result = single_graph.invoke(
+        {
+            "question": question,
+            "narrative": narrative,
+            "choices": choices,
+            "messages": "",
+            "model_calls": [],
+        }
+    )
+    results.append(result)
+
+    response = result["messages"][0]
+    generated_answer = response.content.split("\n")[0]
+    return generated_answer

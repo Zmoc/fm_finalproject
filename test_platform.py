@@ -8,7 +8,7 @@ from single_agent import single_agent_graph
 
 test_list = []
 
-with open("data/test_data/debug_run.csv", encoding="utf-8") as eval_data:
+with open("data/test_data/initial_run.csv", encoding="utf-8") as eval_data:
     reader = csv.DictReader(eval_data, delimiter=",")
 
     for index, line in enumerate(reader):

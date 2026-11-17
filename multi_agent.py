@@ -10,6 +10,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from langgraph.graph import END, START, StateGraph
 
+from eval_log import log_exception
 from eval_suite import eval
 
 test_list = []
@@ -145,20 +146,37 @@ def multi_agent_graph(model, temperature, reasoning):
                 ),
             ]
         )
-
-        scores = json.loads(response.content)
         key_evidence = []
-        argument_threshold = 5
-        evidence_threshold = 4
-        for key in scores:
-            for argument_data in scores[key].values():
-                if argument_data["argument_diagnosticity_score"] >= argument_threshold:
-                    for evidence_data in argument_data["evidence"]:
-                        if (
-                            evidence_data["evidence_diagnosticity_score"]
-                            >= evidence_threshold
-                        ):
-                            key_evidence.append(evidence_data["evidence"])
+        try:
+            scores = json.loads(response.content)
+            argument_threshold = 1
+            evidence_threshold = 1
+            for key in scores:
+                for argument_data in scores[key].values():
+                    if (
+                        argument_data["argument_diagnosticity_score"]
+                        >= argument_threshold
+                    ):
+                        for evidence_data in argument_data["evidence"]:
+                            if (
+                                evidence_data["evidence_diagnosticity_score"]
+                                >= evidence_threshold
+                            ):
+                                key_evidence.append(evidence_data["evidence"])
+
+        except Exception as e:
+            print(e)
+            log_exception(
+                index,
+                int(timestamp),
+                e,
+                model,
+                temperature,
+                reasoning,
+                response.content,
+            )
+
+            key_evidence.append("None")
 
         return {
             "diagnostic_score": key_evidence,
@@ -207,7 +225,7 @@ def multi_agent_graph(model, temperature, reasoning):
     return builder.compile()
 
 
-with open("data/test_data/debug_run.csv", encoding="utf-8") as eval_data:
+with open("data/test_data/initial_run.csv", encoding="utf-8") as eval_data:
     reader = csv.DictReader(eval_data, delimiter=",")
 
     for index, line in enumerate(reader):

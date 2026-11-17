@@ -223,39 +223,80 @@ def multi_agent_graph(model, temperature, reasoning):
     return builder.compile()
 
 
-test_list = []
+def metadata_extraction(
+    eval_list, index, label, results, generated_answer, test_result
+):
+    NANOSECOND_CONVERSION = 1000000000
 
-with open("data/test_data/initial_run.csv", encoding="utf-8") as eval_data:
-    reader = csv.DictReader(eval_data, delimiter=",")
+    total_duration = 0.0
+    load_duration = 0.0
+    prompt_eval_count = 0.0
+    prompt_eval_duration = 0.0
+    eval_count = 0.0
+    eval_duration = 0.0
 
-    for index, line in enumerate(reader):
-        narrative = line["narrative"]
-        question = line["question"]
-        correct_answer = line["answer_choice"]
-        choices = re.findall(r"(\w+)", line["choices"])
+    for result in results:
+        for call in result["model_calls"]:
+            prefix = call["response_metadata"]
+            total_duration += prefix["total_duration"] / NANOSECOND_CONVERSION
+            load_duration += prefix["load_duration"] / NANOSECOND_CONVERSION
+            prompt_eval_count += prefix["prompt_eval_count"]
+            prompt_eval_duration += (
+                prefix["prompt_eval_duration"] / NANOSECOND_CONVERSION
+            )
+            eval_count += prefix["eval_count"]
+            eval_duration += prefix["eval_duration"] / NANOSECOND_CONVERSION
 
-        hypothesis_a = choices[0]
-        hypothesis_b = choices[1]
+    metadata = {
+        "index": index,
+        "label": label,
+        "generated_answer": generated_answer,
+        "test_result": test_result,
+        "total_duration": total_duration,
+        "load_duration": load_duration,
+        "prompt_eval_count": prompt_eval_count,
+        "prompt_eval_duration": prompt_eval_duration,
+        "eval_count": eval_count,
+        "eval_duration": eval_duration,
+    }
 
-        prompt_dict = {
-            "index": index,
-            "hypothesis": [
-                f"The murderer is {hypothesis_a}",
-                f"The murderer is {hypothesis_b}",
-            ],
-            "narrative": narrative,
-            "correct_answer": correct_answer,
-        }
-        test_list.append(prompt_dict)
+    print(f"Completed: {metadata}")
+    eval_list.append(metadata)
 
 
-model_choice = "qwen3:8b"
-reasoning = False
-eval_path = "data/eval_results/eval_results.csv"
-multi_graph = multi_agent_graph(model_choice, 0, reasoning)
+def generate_test_list():
+    test_list = []
+    with open("data/test_data/initial_run.csv", encoding="utf-8") as eval_data:
+        reader = csv.DictReader(eval_data, delimiter=",")
+
+        for index, line in enumerate(reader):
+            narrative = line["narrative"]
+            question = line["question"]
+            correct_answer = line["answer_choice"]
+            choices = re.findall(r"(\w+)", line["choices"])
+
+            prompt_dict = {
+                "index": index,
+                "narrative": narrative,
+                "hypothesis": [
+                    f"The murderer is {choices[0]}",
+                    f"The murderer is {choices[1]}",
+                ],
+                "choices": choices,
+                "question": question,
+                "correct_answer": correct_answer,
+            }
+            test_list.append(prompt_dict)
+    return test_list
+
 
 if __name__ == "__main__":
-    NANOSECOND_CONVERSION = 1000000000
+    test_list = generate_test_list()
+    model_choice = "qwen3:8b"
+    reasoning = False
+    eval_path = "data/eval_results/eval_results.csv"
+    multi_graph = multi_agent_graph(model_choice, 0, reasoning)
+
     timestamp = time.time()
     eval_list = []
 
@@ -297,38 +338,7 @@ if __name__ == "__main__":
 
         test_result = generated_answer == label
 
-        total_duration = 0.0
-        load_duration = 0.0
-        prompt_eval_count = 0.0
-        prompt_eval_duration = 0.0
-        eval_count = 0.0
-        eval_duration = 0.0
-
-        for result in results:
-            for call in result["model_calls"]:
-                prefix = call["response_metadata"]
-
-                total_duration += prefix["total_duration"] / NANOSECOND_CONVERSION
-                load_duration += prefix["load_duration"] / NANOSECOND_CONVERSION
-                prompt_eval_count += prefix["prompt_eval_count"]
-                prompt_eval_duration += (
-                    prefix["prompt_eval_duration"] / NANOSECOND_CONVERSION
-                )
-                eval_count += prefix["eval_count"]
-                eval_duration += prefix["eval_duration"] / NANOSECOND_CONVERSION
-
-        metadata = {
-            "index": index,
-            "label": label,
-            "generated_answer": generated_answer,
-            "test_result": test_result,
-            "total_duration": total_duration,
-            "load_duration": load_duration,
-            "prompt_eval_count": prompt_eval_count,
-            "prompt_eval_duration": prompt_eval_duration,
-            "eval_count": eval_count,
-            "eval_duration": eval_duration,
-        }
-        print(f"Completed: {metadata}")
-        eval_list.append(metadata)
+        metadata_extraction(
+            eval_list, index, label, results, generated_answer, test_result
+        )
     eval(eval_list, timestamp, model_choice, reasoning, "multi", eval_path)

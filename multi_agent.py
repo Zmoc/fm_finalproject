@@ -223,9 +223,8 @@ def multi_agent_graph(model, temperature, reasoning):
     return builder.compile()
 
 
-def metadata_extraction(
-    eval_list, index, label, results, generated_answer, test_result
-):
+def metadata_extraction(index, label, results, generated_answer, test_result):
+    eval_list = []
     NANOSECOND_CONVERSION = 1000000000
 
     total_duration = 0.0
@@ -262,6 +261,7 @@ def metadata_extraction(
 
     print(f"Completed: {metadata}")
     eval_list.append(metadata)
+    return eval_list
 
 
 def generate_test_list():
@@ -295,15 +295,15 @@ if __name__ == "__main__":
     model_choice = "qwen3:8b"
     reasoning = False
     eval_path = "data/eval_results/eval_results.csv"
-    multi_graph = multi_agent_graph(model_choice, 0, reasoning)
-
     timestamp = time.time()
-    eval_list = []
+
+    multi_graph = multi_agent_graph(model_choice, 0, reasoning)
 
     for story in test_list:
         index = story["index"]
         narrative = story["narrative"]
-        label = story["correct_answer"].split(" ")[-1]
+        label = story["correct_answer"]
+
         result_list = []
         evals = []
         results = []
@@ -338,7 +338,7 @@ if __name__ == "__main__":
 
         test_result = generated_answer == label
 
-        metadata_extraction(
-            eval_list, index, label, results, generated_answer, test_result
+        eval_list = metadata_extraction(
+            index, label, results, generated_answer, test_result
         )
     eval(eval_list, timestamp, model_choice, reasoning, "multi", eval_path)

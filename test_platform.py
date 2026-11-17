@@ -6,9 +6,8 @@ from eval_suite import eval
 from single_agent import single_agent_graph
 
 
-def metadata_extraction(
-    eval_list, index, label, results, generated_answer, test_result
-):
+def metadata_extraction(index, label, results, generated_answer, test_result):
+    eval_list = []
     NANOSECOND_CONVERSION = 1000000000
 
     total_duration = 0.0
@@ -45,6 +44,7 @@ def metadata_extraction(
 
     print(f"Completed: {metadata}")
     eval_list.append(metadata)
+    return eval_list
 
 
 def generate_test_list():
@@ -78,16 +78,16 @@ if __name__ == "__main__":
     model_choice = "qwen3:8b"
     reasoning = False
     eval_path = "data/eval_results/eval_results.csv"
-    single_graph = single_agent_graph(model_choice, 0, reasoning)
-
     timestamp = time.time()
-    eval_list = []
+
+    single_graph = single_agent_graph(model_choice, 0, reasoning)
 
     for story in test_list:
         index = story["index"]
-        label = story["correct_answer"]
-        question = story["question"]
         narrative = story["narrative"]
+        label = story["correct_answer"]
+
+        question = story["question"]
         choices = story["choices"]
         results = []
         print(f"Running Story {index}")
@@ -108,7 +108,7 @@ if __name__ == "__main__":
         generated_answer = response.content.split("\n")[0]
         test_result = label == generated_answer
 
-        metadata_extraction(
-            eval_list, index, label, results, generated_answer, test_result
+        eval_list = metadata_extraction(
+            index, label, results, generated_answer, test_result
         )
     eval(eval_list, timestamp, model_choice, reasoning, "single", eval_path)

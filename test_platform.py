@@ -27,16 +27,15 @@ if __name__ == "__main__":
         index = story["index"]
         narrative = story["narrative"]
         label = story["correct_answer"]
-        results = []
 
         if single_agent_run == True:
-            generated_answer = single_agent_invoke(
-                single_graph, story, index, narrative, results
+            generated_answer, results = single_agent_invoke(
+                single_graph, story, index, narrative
             )
 
         if multi_agent_run == True:
-            generated_answer = multi_agent_invoke(
-                multi_graph, story, index, narrative, results
+            generated_answer, results = multi_agent_invoke(
+                multi_graph, story, index, narrative
             )
 
         test_result = label == generated_answer

@@ -11,6 +11,7 @@ from eval_helpers.eval_suite import capture_metadata
 
 def multi_agent_graph(model, temperature, reasoning):
     class State(TypedDict):
+        summary: str
         hypothesis: str
         narrative: str
         extraction: str
@@ -19,45 +20,82 @@ def multi_agent_graph(model, temperature, reasoning):
         model_calls: Annotated[list[dict[str, Any]], operator.add]
 
     model = ChatOllama(
-        model=model, temperature=temperature, reasoning=reasoning, format="json"
+        model=model,
+        temperature=temperature,
+        reasoning=reasoning,
+        format="json",
+        seed=42,
     )
 
-    def build_graph(State, evidence_extraction, diagnosticity, analysis):
+    def build_graph(State, summarizer, evidence_extraction, diagnosticity, analysis):
         builder = StateGraph(State)
+        builder.add_node("summarizer", summarizer)
         builder.add_node("extraction", evidence_extraction)
         builder.add_node("diagnosticity", diagnosticity)
         builder.add_node("analysis", analysis)
-        builder.add_edge(START, "extraction")
+
+        builder.add_edge(START, "summarizer")
+        builder.add_edge("summarizer", "extraction")
         builder.add_edge("extraction", "diagnosticity")
         builder.add_edge("diagnosticity", "analysis")
         builder.add_edge("analysis", END)
         return builder.compile()
 
+    def summarizer(state: State):
+        summary_system_prompt = """
+                        You are a detective reviewing a case file.
+                        
+                        Summarize the narrative impartially.
+                        Do not speculate who the murderer is.
+                        Do not specify anything as key evidence.
+                        Only report the background of the case.
+
+                        Return a JSON object with this structure:
+                        {
+                           "summary": "summary of the narrative"
+                        }
+                        """
+
+        summary_input_prompt = f"Narrative: {state['narrative']}"
+
+        response = model.invoke(
+            [
+                SystemMessage(content=(summary_system_prompt)),
+                HumanMessage(content=(summary_input_prompt)),
+            ]
+        )
+        print(response.content)
+
+        return {
+            "summary": response.content,
+            "model_calls": [capture_metadata("summarizer", response)],
+        }
+
     def evidence_extraction(state: State):
         evidence_system_prompt = """
                         You are a detective using the Analysis of Competing Hypotheses method.
                         Make a list of significant evidence and arguments for and against the given hypothesis.
-                        The output should be in JSON format where each argument is listed with its supporting evidence.
-                        Only output the JSON file. Do not output any other text. Use the following format:
+                        Return a JSON object with this structure:
+
                         {
                             "arguments_for": {
-                                "argument_id": {
-                                    "argument": Description of the specific argument,
+                                argument1: {
+                                    "argument": "Description of the specific argument",
                                     "evidence": [
                                         {
-                                            "evidence_id": Unique identifier for the infividual piece of evidence,
-                                            "evidence_text": Description of the specific evidence,
+                                            "evidence_id": argument1_evidence1,
+                                            "evidence_text": "Description of the specific evidence",
                                         }
                                     ]
                                 }
                             },
                             "arguments_against": {
-                                "argument_id": {
-                                    "argument": Description of the specific argument,
+                                argument2: {
+                                    "argument": "Description of the specific argument",
                                     "evidence": [
                                         {
-                                            "evidence_id": Unique identifier for the infividual piece of evidence,
-                                            "evidence_text": Description of the specific evidence,
+                                            "evidence_id": argument2_evidence1,
+                                            "evidence_text": "Description of the specific evidence",
                                         }
                                     ]
                                 }
@@ -85,36 +123,37 @@ def multi_agent_graph(model, temperature, reasoning):
         diagnostic_system_prompt = """
                         You are an intelligence analyst using the Analysis of Competing Hypotheses method.
                         Examine the given arguments and supporting evidence and determine the diagnosticity of each.
+                        
                         Diagnosticity refers to how useful the information is in determining the likelihood of the stated hypothesis.
                         Assign a score to each argument and individual piece of evidence from 1-5 where 1 is least diagnostic and 5 is the most diagnostic.
+                        
                         A piece of evidence that is likely to be seen regardless of the hypothesis being True or False has a diagnostic value of 1.
                         A piece of evidence that can only appear if the hypothesis is exclusively True or False (but not both) has a diagnostic value of 5.
                         
-                        Output your scores in JSON format where each argument and supporting evidence is listed with their scores.
-                        Only output the JSON file. Do not output any other text. Use the following format:
+                        Return a JSON object with this structure:
                         {
                             "arguments_for": {
-                                "argument_id": {
-                                    "argument": Description of the specific argument,
-                                    "argument_diagnosticity_score": Numerical score,
+                                argument1: {
+                                    "argument": "Description of the specific argument",
+                                    "argument_diagnosticity_score": 3,
                                     "evidence": [
                                         {
-                                            "evidence_id": Unique identifier for the infividual piece of evidence,
-                                            "evidence_text": Description of the specific evidence,
-                                            "evidence_diagnosticity_score": Numerical score
+                                            "evidence_id": argument1_evidence1,
+                                            "evidence_text": "Description of the specific evidence",
+                                            "evidence_diagnosticity_score": 3
                                         }
                                     ]
                                 }
                             },
                             "arguments_against": {
-                                "argument_id": {
-                                    "argument": Description of the specific argument,
-                                    "argument_diagnosticity_score": Numerical score,
+                                argument2: {
+                                    "argument": "Description of the specific argument",
+                                    "argument_diagnosticity_score": 3,
                                     "evidence": [
                                         {
-                                            "evidence_id": Unique identifier for the infividual piece of evidence,
-                                            "evidence_text": Description of the specific evidence,
-                                            "evidence_diagnosticity_score": Numerical score
+                                            "evidence_id": argument2_evidence1,
+                                            "evidence_text": "Description of the specific evidence",
+                                            "evidence_diagnosticity_score": 3
                                         }
                                     ]
                                 }
@@ -133,6 +172,7 @@ def multi_agent_graph(model, temperature, reasoning):
             ]
         )
         key_evidence = evidence_filtering(response)
+        print(key_evidence)
 
         return {
             "key_evidence": key_evidence,
@@ -170,15 +210,16 @@ def multi_agent_graph(model, temperature, reasoning):
     def analysis(state: State):
         analysis_system_prompt = """
                         You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method.
-                        Based the key evidence, determine the likelihood that the stated hypothesis is correct.
+                        Based only on the narrative summary and key evidence, determine the likelihood that the stated hypothesis is correct.
+                        The likelihood must be an integer from 1 through 5 where 1 is a very low likelihood and 5 is a very high likelihood.
                         
                         Return a JSON object with this structure:
                         {"suspect": "suspect name", "likelihood": 3}
-                        The likelihood must be an integer from 1 through 5.
                         """
 
         analysis_input_prompt = (
             f"Hypothesis:\n{state['hypothesis']}\n\n"
+            f"Summary:\n{state['summary']}"
             f"Key Evidence:\n{state['key_evidence']}"
         )
         response = model.invoke(
@@ -193,7 +234,7 @@ def multi_agent_graph(model, temperature, reasoning):
             "model_calls": [capture_metadata("analysis", response)],
         }
 
-    return build_graph(State, evidence_extraction, diagnosticity, analysis)
+    return build_graph(State, summarizer, evidence_extraction, diagnosticity, analysis)
 
 
 def multi_agent_invoke(graph, story, index, narrative):
@@ -217,6 +258,7 @@ def multi_agent_invoke(graph, story, index, narrative):
         print(f"Running Story {index}, Hypothesis: {hypothesis}")
 
         invocation_state = {
+            "summary": "",
             "hypothesis": hypothesis,
             "narrative": narrative,
             "extraction": "",
@@ -226,8 +268,9 @@ def multi_agent_invoke(graph, story, index, narrative):
         }
         result = graph.invoke(invocation_state)
         results.append(result)
-
-        evals.append(json.loads(result["likelihood_hypothesis"]))
+        likelihood = result["likelihood_hypothesis"]
+        print(likelihood)
+        evals.append(json.loads(likelihood))
 
     generated_answer = hypothesis_choose(evals)
     return generated_answer, results

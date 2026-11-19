@@ -58,7 +58,6 @@ def capture_metadata(agent_name, response):
 
 
 def metadata_extraction(index, label, results, generated_answer, test_result):
-    eval_list = []
     NANOSECOND_CONVERSION = 1000000000
 
     total_duration = 0.0
@@ -93,14 +92,13 @@ def metadata_extraction(index, label, results, generated_answer, test_result):
         "eval_duration": eval_duration,
     }
 
-    print(f"Completed: {metadata}")
-    eval_list.append(metadata)
-    return eval_list
+    print(f"Completed {index}")
+    return metadata
 
 
-def generate_test_list():
+def generate_test_list(input_file):
     test_list = []
-    with open("data/test_data/initial_run.csv", encoding="utf-8") as eval_data:
+    with open(input_file, encoding="utf-8") as eval_data:
         reader = csv.DictReader(eval_data, delimiter=",")
 
         for index, line in enumerate(reader):

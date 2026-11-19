@@ -1,4 +1,3 @@
-import ast
 import json
 import operator
 from typing import Annotated, Any, TypedDict
@@ -15,11 +14,13 @@ def multi_agent_graph(model, temperature, reasoning):
         hypothesis: str
         narrative: str
         extraction: str
-        diagnostic_score: str
+        key_evidence: list
         likelihood_hypothesis: str
         model_calls: Annotated[list[dict[str, Any]], operator.add]
 
-    model = ChatOllama(model=model, temperature=temperature, reasoning=reasoning)
+    model = ChatOllama(
+        model=model, temperature=temperature, reasoning=reasoning, format="json"
+    )
 
     def build_graph(State, evidence_extraction, diagnosticity, analysis):
         builder = StateGraph(State)
@@ -41,22 +42,22 @@ def multi_agent_graph(model, temperature, reasoning):
                         {
                             "arguments_for": {
                                 "argument_id": {
-                                    "argument": "argument_text",
+                                    "argument": Description of the specific argument,
                                     "evidence": [
                                         {
-                                            "evidence_id": "evidence_text",
-                                            ...
+                                            "evidence_id": Unique identifier for the infividual piece of evidence,
+                                            "evidence_text": Description of the specific evidence,
                                         }
                                     ]
                                 }
                             },
                             "arguments_against": {
                                 "argument_id": {
-                                    "argument": "argument_text",
+                                    "argument": Description of the specific argument,
                                     "evidence": [
                                         {
-                                            "evidence_id": "evidence_text",
-                                            ...
+                                            "evidence_id": Unique identifier for the infividual piece of evidence,
+                                            "evidence_text": Description of the specific evidence,
                                         }
                                     ]
                                 }
@@ -88,29 +89,32 @@ def multi_agent_graph(model, temperature, reasoning):
                         Assign a score to each argument and individual piece of evidence from 1-5 where 1 is least diagnostic and 5 is the most diagnostic.
                         A piece of evidence that is likely to be seen regardless of the hypothesis being True or False has a diagnostic value of 1.
                         A piece of evidence that can only appear if the hypothesis is exclusively True or False (but not both) has a diagnostic value of 5.
+                        
                         Output your scores in JSON format where each argument and supporting evidence is listed with their scores.
                         Only output the JSON file. Do not output any other text. Use the following format:
                         {
                             "arguments_for": {
                                 "argument_id": {
-                                    "argument": "argument_text",
-                                    "argument_diagnosticity_score": "diagnosticity_score",
+                                    "argument": Description of the specific argument,
+                                    "argument_diagnosticity_score": Numerical score,
                                     "evidence": [
                                         {
-                                            "evidence_id": "evidence_text",
-                                            "evidence_diagnosticity_score": "diagnosticity_score"
+                                            "evidence_id": Unique identifier for the infividual piece of evidence,
+                                            "evidence_text": Description of the specific evidence,
+                                            "evidence_diagnosticity_score": Numerical score
                                         }
                                     ]
                                 }
                             },
                             "arguments_against": {
                                 "argument_id": {
-                                    "argument": "argument_text",
-                                    "argument_diagnosticity_score": "diagnosticity_score",
+                                    "argument": Description of the specific argument,
+                                    "argument_diagnosticity_score": Numerical score,
                                     "evidence": [
                                         {
-                                            "evidence_id": "evidence_text",
-                                            "evidence_diagnosticity_score": "diagnosticity_score"
+                                            "evidence_id": Unique identifier for the infividual piece of evidence,
+                                            "evidence_text": Description of the specific evidence,
+                                            "evidence_diagnosticity_score": Numerical score
                                         }
                                     ]
                                 }
@@ -131,46 +135,51 @@ def multi_agent_graph(model, temperature, reasoning):
         key_evidence = evidence_filtering(response)
 
         return {
-            "diagnostic_score": key_evidence,
+            "key_evidence": key_evidence,
             "model_calls": [capture_metadata("diagnosticity", response)],
         }
 
     def evidence_filtering(response):
         key_evidence = []
-        try:
-            scores = json.loads(response.content)
-            argument_threshold = 1
-            evidence_threshold = 1
-            for key in scores:
+
+        scores = json.loads(response.content, strict=False)
+        argument_threshold = 1
+        evidence_threshold = 1
+        for key in scores:
+            try:
                 for argument_data in scores[key].values():
                     if (
                         argument_data["argument_diagnosticity_score"]
                         >= argument_threshold
                     ):
-                        for evidence_data in argument_data["evidence"]:
-                            if (
-                                evidence_data["evidence_diagnosticity_score"]
-                                >= evidence_threshold
-                            ):
-                                key_evidence.append(evidence_data["evidence"])
+                        if not argument_data["evidence"]:
+                            print(scores)
+                        else:
+                            for evidence_data in argument_data["evidence"]:
+                                if (
+                                    evidence_data["evidence_diagnosticity_score"]
+                                    >= evidence_threshold
+                                ):
+                                    key_evidence.append(evidence_data["evidence_text"])
+            except Exception as e:
+                print(e)
+                print(response.content)
 
-        except Exception as e:
-            print(e)
-            key_evidence.append("None")
         return key_evidence
 
     def analysis(state: State):
         analysis_system_prompt = """
                         You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method.
                         Based the key evidence, determine the likelihood that the stated hypothesis is correct.
-                        Give the likelihood as a value on a scale of 1-5 with 1 being Very Unlikely and 5 as Very Highly Likely.
-                        Output your final answer as a dictionary: 
-                        Only output the dictionary. Do not output any other text. Use the following format: {'suspect':suspect_name, 'likelihood':likelihood_score}
+                        
+                        Return a JSON object with this structure:
+                        {"suspect": "suspect name", "likelihood": 3}
+                        The likelihood must be an integer from 1 through 5.
                         """
 
         analysis_input_prompt = (
             f"Hypothesis:\n{state['hypothesis']}\n\n"
-            f"Key Evidence:\n{state['diagnostic_score']}"
+            f"Key Evidence:\n{state['key_evidence']}"
         )
         response = model.invoke(
             [
@@ -211,14 +220,14 @@ def multi_agent_invoke(graph, story, index, narrative):
             "hypothesis": hypothesis,
             "narrative": narrative,
             "extraction": "",
-            "diagnostic_score": "",
+            "key_evidence": "",
             "likelihood_hypothesis": "",
             "model_calls": [],
         }
         result = graph.invoke(invocation_state)
         results.append(result)
 
-        evals.append(ast.literal_eval(result["likelihood_hypothesis"]))
+        evals.append(json.loads(result["likelihood_hypothesis"]))
 
     generated_answer = hypothesis_choose(evals)
     return generated_answer, results

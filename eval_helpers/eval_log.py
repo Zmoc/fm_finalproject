@@ -18,8 +18,7 @@ def log_exception(
     }
     print(exception_metadata)
 
-
-"""    if Path(log_path).is_file():
+    if Path(log_path).is_file():
         with open(log_path, "a", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=exception_metadata.keys())
             writer.writerows(exception_metadata)
@@ -27,4 +26,4 @@ def log_exception(
         with open(log_path, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=exception_metadata.keys())
             writer.writeheader()
-            writer.writerows(exception_metadata)"""
+            writer.writerows(exception_metadata)

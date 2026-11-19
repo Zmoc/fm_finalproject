@@ -3,18 +3,22 @@ import re
 from pathlib import Path
 
 
-def accuracy_score(eval_list):
+def scoring(eval_list):
     pass_count = 0
+    indecisive_count = 0
     num_tests = len(eval_list)
     for test in eval_list:
+        if test["generated_answer"] == "Indecisive":
+            indecisive_count += 1
         if test["test_result"] == True:
             pass_count += 1
 
     accuracy = pass_count / num_tests
-    return accuracy
+    indecisive_rate = indecisive_count / num_tests
+    return accuracy, indecisive_rate
 
 
-def eval(eval_list, timestamp, model, thinking, model_type, eval_path):
+def eval(eval_list, timestamp, model, thinking, model_type, test_data_path, eval_path):
     accuracy = 0.0
     with open(
         f"data/eval_results/model_eval_{int(timestamp)}.csv", "w", newline=""
@@ -23,15 +27,17 @@ def eval(eval_list, timestamp, model, thinking, model_type, eval_path):
         writer.writeheader()
         writer.writerows(eval_list)
 
-    accuracy = accuracy_score(eval_list)
+    accuracy, indecisive_rate = scoring(eval_list)
 
     eval_metadata = [
         {
             "timestamp": int(timestamp),
+            "test_dataset": test_data_path,
             "model": model,
             "model_type": model_type,
             "thinking": thinking,
             "accuracy": accuracy,
+            "indecisive_rate": indecisive_rate,
         }
     ]
 

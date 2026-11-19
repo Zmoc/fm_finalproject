@@ -5,7 +5,8 @@ from agents.single_agent import single_agent_graph, single_agent_invoke
 from eval_helpers.eval_suite import eval, generate_test_list, metadata_extraction
 
 if __name__ == "__main__":
-    test_list = generate_test_list("data/test_data/debug_run.csv")
+    test_data_path = "data/test_data/short_run.csv"
+    test_list = generate_test_list(test_data_path)
     model_choice = "qwen3:8b"
     reasoning = False
     eval_path = "data/eval_results/eval_results.csv"
@@ -46,4 +47,12 @@ if __name__ == "__main__":
 
     print(eval_list)
 
-    eval(eval_list, timestamp, model_choice, reasoning, agent_type, eval_path)
+    eval(
+        eval_list,
+        timestamp,
+        model_choice,
+        reasoning,
+        agent_type,
+        test_data_path,
+        eval_path,
+    )

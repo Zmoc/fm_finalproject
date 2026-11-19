@@ -80,7 +80,7 @@ def multi_agent_graph(model, temperature, reasoning):
                         {
                             "arguments_for": {
                                 argument1: {
-                                    "argument": "Description of the specific argument",
+                                    "argument": "Description of the specific argument in support of the given hypothesis",
                                     "evidence": [
                                         {
                                             "evidence_id": argument1_evidence1,
@@ -91,7 +91,7 @@ def multi_agent_graph(model, temperature, reasoning):
                             },
                             "arguments_against": {
                                 argument2: {
-                                    "argument": "Description of the specific argument",
+                                    "argument": "Description of the specific argument against the given hypothesis",
                                     "evidence": [
                                         {
                                             "evidence_id": argument2_evidence1,
@@ -134,7 +134,7 @@ def multi_agent_graph(model, temperature, reasoning):
                         {
                             "arguments_for": {
                                 argument1: {
-                                    "argument": "Description of the specific argument",
+                                    "argument": "Description of the specific argument in support of the given hypothesis",
                                     "argument_diagnosticity_score": 3,
                                     "evidence": [
                                         {
@@ -147,7 +147,7 @@ def multi_agent_graph(model, temperature, reasoning):
                             },
                             "arguments_against": {
                                 argument2: {
-                                    "argument": "Description of the specific argument",
+                                    "argument": "Description of the specific argument against the given hypothesis",
                                     "argument_diagnosticity_score": 3,
                                     "evidence": [
                                         {
@@ -171,8 +171,9 @@ def multi_agent_graph(model, temperature, reasoning):
                 HumanMessage(content=(diagnostic_input_prompt)),
             ]
         )
+        print(response.content)
+
         key_evidence = evidence_filtering(response)
-        print(key_evidence)
 
         return {
             "key_evidence": key_evidence,

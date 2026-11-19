@@ -11,8 +11,8 @@ if __name__ == "__main__":
     eval_path = "data/eval_results/eval_results.csv"
     timestamp = time.time()
 
-    single_agent_run = False
-    multi_agent_run = True
+    single_agent_run = True
+    multi_agent_run = False
     agent_type = ""
 
     if single_agent_run == True:

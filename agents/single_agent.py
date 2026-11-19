@@ -17,9 +17,7 @@ def single_agent_graph(model, temperature, reasoning):
         model_calls: Annotated[list[dict[str, Any]], operator.add]
 
     model = ChatOllama(
-        model=model,
-        temperature=temperature,
-        reasoning=reasoning,
+        model=model, temperature=temperature, reasoning=reasoning, seed=42
     )
 
     def build_graph(State, agent):

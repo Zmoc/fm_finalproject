@@ -64,7 +64,6 @@ def multi_agent_graph(model, temperature, reasoning):
                 HumanMessage(content=(summary_input_prompt)),
             ]
         )
-        print(response.content)
 
         return {
             "summary": response.content,
@@ -171,7 +170,6 @@ def multi_agent_graph(model, temperature, reasoning):
                 HumanMessage(content=(diagnostic_input_prompt)),
             ]
         )
-        print(response.content)
 
         key_evidence = evidence_filtering(response)
 
@@ -211,7 +209,7 @@ def multi_agent_graph(model, temperature, reasoning):
     def analysis(state: State):
         analysis_system_prompt = """
                         You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method.
-                        Based only on the narrative summary and key evidence, determine the likelihood that the stated hypothesis is correct.
+                        Based on the narrative summary and key evidence, determine the likelihood that the stated hypothesis is correct.
                         The likelihood must be an integer from 1 through 5 where 1 is a very low likelihood and 5 is a very high likelihood.
                         
                         Return a JSON object with this structure:
@@ -220,8 +218,9 @@ def multi_agent_graph(model, temperature, reasoning):
 
         analysis_input_prompt = (
             f"Hypothesis:\n{state['hypothesis']}\n\n"
-            f"Summary:\n{state['summary']}"
-            f"Key Evidence:\n{state['key_evidence']}"
+            f"Summary:\n{state['summary']}\n\n"
+            f"Narrative:\n{state['narrative']}\n\n"
+            f"Key Evidence:\n{state['key_evidence']}\n\n"
         )
         response = model.invoke(
             [
@@ -270,7 +269,6 @@ def multi_agent_invoke(graph, story, index, narrative):
         result = graph.invoke(invocation_state)
         results.append(result)
         likelihood = result["likelihood_hypothesis"]
-        print(likelihood)
         evals.append(json.loads(likelihood))
 
     generated_answer = hypothesis_choose(evals)

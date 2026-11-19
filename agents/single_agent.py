@@ -8,7 +8,7 @@ from langgraph.graph import START, StateGraph
 from eval_helpers.eval_suite import capture_metadata
 
 
-def single_agent_graph(model, temperature, reasoning):
+def single_agent_graph(model, temperature, reasoning, timeout):
     class State(TypedDict):
         question: str
         narrative: str
@@ -17,20 +17,23 @@ def single_agent_graph(model, temperature, reasoning):
         model_calls: Annotated[list[dict[str, Any]], operator.add]
 
     model = ChatOllama(
-        model=model, temperature=temperature, reasoning=reasoning, seed=42
+        model=model,
+        temperature=temperature,
+        reasoning=reasoning,
+        # num_predict=1024,
+        seed=42,
+        client_kwargs={"timeout": timeout},
     )
 
-    def build_graph(State, agent):
+    def build_graph(State, single_agent):
         builder = StateGraph(State)
-        builder.add_node("agent", agent)
+        builder.add_node("agent", single_agent)
         builder.add_edge(START, "agent")
         return builder.compile()
 
-    def agent(state: State):
+    def single_agent(state: State):
         system_prompt = """
                         Answer the following multiple choice question.
-                        Think step by step before answering.
-                        Clearly specify the evidence that you are using to justify your answer.
                         If neither choice seems likely, output "Indecisive"
                         Output only the name of the chosen suspect or Indecisive, no other words, descriptions, or formatting.
                         """
@@ -48,15 +51,14 @@ def single_agent_graph(model, temperature, reasoning):
         )
         return {
             "messages": [response],
-            "model_calls": [capture_metadata("evidence_extraction", response)],
+            "model_calls": [capture_metadata("single_agent", response)],
         }
 
-    return build_graph(State, agent)
+    return build_graph(State, single_agent)
 
 
 def single_agent_invoke(graph, story, index, narrative):
     results = []
-
     question = story["question"]
     choices = story["choices"]
 
@@ -69,9 +71,14 @@ def single_agent_invoke(graph, story, index, narrative):
         "messages": "",
         "model_calls": [],
     }
-    result = graph.invoke(invocation_state)
-    results.append(result)
 
-    response = result["messages"][0]
-    generated_answer = response.content.split("\n")[0]
+    try:
+        result = graph.invoke(invocation_state)
+        results.append(result)
+
+        response = result["messages"][0]
+        generated_answer = response.content.split("\n")[0]
+    except TimeoutError:
+        generated_answer = "Timeout"
+
     return generated_answer, results

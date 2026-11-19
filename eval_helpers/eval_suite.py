@@ -98,7 +98,9 @@ def metadata_extraction(index, label, results, generated_answer, test_result):
         "eval_duration": eval_duration,
     }
 
-    print(f"Completed {index}")
+    print(
+        f"Completed Story {index}, Generated Answer: {generated_answer}, Result: {test_result}"
+    )
     return metadata
 
 

@@ -8,21 +8,24 @@ if __name__ == "__main__":
     test_data_path = "data/test_data/short_run.csv"
     test_list = generate_test_list(test_data_path)
     model_choice = "qwen3:8b"
-    reasoning = False
+    reasoning = True
     temperature = 0
+    timeout = 60.0
     eval_path = "data/eval_results/eval_results.csv"
     timestamp = time.time()
 
-    single_agent_run = False
-    multi_agent_run = True
+    single_agent_run = True
+    multi_agent_run = False
     agent_type = ""
 
     if single_agent_run == True:
-        single_graph = single_agent_graph(model_choice, temperature, reasoning)
+        single_graph = single_agent_graph(model_choice, temperature, reasoning, timeout)
+        single_graph.step_timeout = timeout
         agent_type = "single"
 
     if multi_agent_run == True:
-        multi_graph = multi_agent_graph(model_choice, temperature, reasoning)
+        multi_graph = multi_agent_graph(model_choice, temperature, reasoning, timeout)
+        multi_graph.step_timeout = timeout
         agent_type = "multi"
 
     eval_list = []
@@ -45,8 +48,6 @@ if __name__ == "__main__":
         eval_list.append(
             metadata_extraction(index, label, results, generated_answer, test_result)
         )
-
-    print(eval_list)
 
     eval(
         eval_list,

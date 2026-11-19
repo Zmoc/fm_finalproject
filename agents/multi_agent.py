@@ -9,7 +9,7 @@ from langgraph.graph import END, START, StateGraph
 from eval_helpers.eval_suite import capture_metadata
 
 
-def multi_agent_graph(model, temperature, reasoning):
+def multi_agent_graph(model, temperature, reasoning, timeout):
     class State(TypedDict):
         summary: str
         hypothesis: str
@@ -24,6 +24,7 @@ def multi_agent_graph(model, temperature, reasoning):
         temperature=temperature,
         reasoning=reasoning,
         format="json",
+        client_kwargs={"timeout": timeout},
         seed=42,
     )
 
@@ -253,23 +254,28 @@ def multi_agent_invoke(graph, story, index, narrative):
         return chosen_suspect
 
     evals = []
+    try:
+        for hypothesis in story["hypothesis"]:
+            print(f"Running Story {index}, Hypothesis: {hypothesis}")
 
-    for hypothesis in story["hypothesis"]:
-        print(f"Running Story {index}, Hypothesis: {hypothesis}")
+            invocation_state = {
+                "summary": "",
+                "hypothesis": hypothesis,
+                "narrative": narrative,
+                "extraction": "",
+                "key_evidence": "",
+                "likelihood_hypothesis": "",
+                "model_calls": [],
+            }
 
-        invocation_state = {
-            "summary": "",
-            "hypothesis": hypothesis,
-            "narrative": narrative,
-            "extraction": "",
-            "key_evidence": "",
-            "likelihood_hypothesis": "",
-            "model_calls": [],
-        }
-        result = graph.invoke(invocation_state)
-        results.append(result)
-        likelihood = result["likelihood_hypothesis"]
-        evals.append(json.loads(likelihood))
+            result = graph.invoke(invocation_state)
+            results.append(result)
+            likelihood = result["likelihood_hypothesis"]
+            evals.append(json.loads(likelihood))
 
-    generated_answer = hypothesis_choose(evals)
+        generated_answer = hypothesis_choose(evals)
+
+    except TimeoutError:
+        generated_answer = "Timeout"
+
     return generated_answer, results

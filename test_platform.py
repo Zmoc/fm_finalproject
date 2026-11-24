@@ -28,7 +28,9 @@ if __name__ == "__main__":
         agent_type = "single"
 
     if multi_agent_run == True:
-        multi_graph = multi_agent_graph(model_choice, temperature, reasoning, timeout)
+        multi_graph = multi_agent_graph(
+            model_choice, temperature, reasoning, timeout, top_K, top_P
+        )
         multi_graph.step_timeout = timeout
         agent_type = "multi"
 

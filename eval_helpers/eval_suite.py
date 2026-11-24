@@ -77,13 +77,14 @@ def metadata_extraction(index, label, results, generated_answer, test_result):
         for call in result["model_calls"]:
             prefix = call["response_metadata"]
             total_duration += prefix["total_duration"] / NANOSECOND_CONVERSION
-            load_duration += prefix["load_duration"] / NANOSECOND_CONVERSION
             prompt_eval_count += prefix["prompt_eval_count"]
             prompt_eval_duration += (
                 prefix["prompt_eval_duration"] / NANOSECOND_CONVERSION
             )
             eval_count += prefix["eval_count"]
             eval_duration += prefix["eval_duration"] / NANOSECOND_CONVERSION
+            if prefix["load_duration"] is not None:
+                load_duration += prefix["load_duration"] / NANOSECOND_CONVERSION
 
     metadata = {
         "index": index,

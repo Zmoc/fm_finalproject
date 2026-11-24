@@ -16,7 +16,7 @@ def multi_agent_graph(model, temperature, reasoning, timeout):
         narrative: str
         extraction: str
         key_evidence: list
-        likelihood_hypothesis: str
+        chosen_suspect: str
         model_calls: Annotated[list[dict[str, Any]], operator.add]
 
     model = ChatOllama(
@@ -210,11 +210,10 @@ def multi_agent_graph(model, temperature, reasoning, timeout):
     def analysis(state: State):
         analysis_system_prompt = """
                         You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method.
-                        Based on the narrative summary and key evidence, determine the likelihood that the stated hypothesis is correct.
-                        The likelihood must be an integer from 1 through 5 where 1 is a very low likelihood and 5 is a very high likelihood.
+                        Based on the narrative and key evidence, determine who the most likely culprit is.
                         
                         Return a JSON object with this structure:
-                        {"suspect": "suspect name", "likelihood": 3}
+                        {"suspect": "suspect name"}
                         """
 
         analysis_input_prompt = (
@@ -231,7 +230,7 @@ def multi_agent_graph(model, temperature, reasoning, timeout):
         )
 
         return {
-            "likelihood_hypothesis": response.content,
+            "chosen_suspect": response.content,
             "model_calls": [capture_metadata("analysis", response)],
         }
 
@@ -245,10 +244,8 @@ def multi_agent_invoke(graph, story, index, narrative):
         evalA = evals[0]
         evalB = evals[1]
 
-        if evalA["likelihood"] > evalB["likelihood"]:
+        if evalA["suspect"] == evalB["suspect"]:
             chosen_suspect = evalA["suspect"]
-        elif evalA["likelihood"] < evalB["likelihood"]:
-            chosen_suspect = evalB["suspect"]
         else:
             chosen_suspect = "Indecisive"
         return chosen_suspect
@@ -264,14 +261,14 @@ def multi_agent_invoke(graph, story, index, narrative):
                 "narrative": narrative,
                 "extraction": "",
                 "key_evidence": "",
-                "likelihood_hypothesis": "",
+                "chosen_suspect": "",
                 "model_calls": [],
             }
 
             result = graph.invoke(invocation_state)
             results.append(result)
-            likelihood = result["likelihood_hypothesis"]
-            evals.append(json.loads(likelihood))
+            suspect = result["chosen_suspect"]
+            evals.append(json.loads(suspect))
 
         generated_answer = hypothesis_choose(evals)
 

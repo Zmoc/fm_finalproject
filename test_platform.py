@@ -5,11 +5,13 @@ from agents.single_agent import single_agent_graph, single_agent_invoke
 from eval_helpers.eval_suite import eval, generate_test_list, metadata_extraction
 
 if __name__ == "__main__":
-    test_data_path = "data/test_data/murder_mystery.csv"
+    test_data_path = "data/test_data/short_run.csv"
     test_list = generate_test_list(test_data_path)
     model_choice = "qwen3:8b"
     reasoning = False
-    temperature = 0
+    temperature = 0.7
+    top_K = 20
+    top_P = 0.8
     timeout = 60.0
     eval_path = "data/eval_results/eval_results.csv"
     timestamp = time.time()
@@ -19,7 +21,9 @@ if __name__ == "__main__":
     agent_type = ""
 
     if single_agent_run == True:
-        single_graph = single_agent_graph(model_choice, temperature, reasoning, timeout)
+        single_graph = single_agent_graph(
+            model_choice, temperature, reasoning, timeout, top_K, top_P
+        )
         single_graph.step_timeout = timeout
         agent_type = "single"
 

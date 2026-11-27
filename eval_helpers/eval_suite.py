@@ -17,7 +17,9 @@ def scoring(eval_list):
 def eval(eval_list, timestamp, model, thinking, model_type, test_data_path, eval_path):
     accuracy = 0.0
     with open(
-        f"data/eval_results/model_eval_{int(timestamp)}.csv", "w", newline=""
+        f"data/eval_results/model_eval_{int(timestamp)}_{model_type}.csv",
+        "w",
+        newline="",
     ) as f:
         writer = csv.DictWriter(f, fieldnames=eval_list[0].keys())
         writer.writeheader()

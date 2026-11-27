@@ -13,6 +13,7 @@ if __name__ == "__main__":
     top_K = 20
     top_P = 0.8
     timeout = 60.0
+    seed = 42
     eval_path = "data/eval_results/eval_results.csv"
     timestamp = time.time()
 
@@ -22,14 +23,14 @@ if __name__ == "__main__":
 
     if single_agent_run == True:
         single_graph = single_agent_graph(
-            model_choice, temperature, reasoning, timeout, top_K, top_P
+            model_choice, temperature, reasoning, timeout, top_K, top_P, seed
         )
         single_graph.step_timeout = timeout
         agent_type = "single"
 
     if multi_agent_run == True:
         multi_graph = multi_agent_graph(
-            model_choice, temperature, reasoning, timeout, top_K, top_P
+            model_choice, temperature, reasoning, timeout, top_K, top_P, seed
         )
         multi_graph.step_timeout = timeout
         agent_type = "multi"

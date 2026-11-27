@@ -8,7 +8,7 @@ from langgraph.graph import START, StateGraph
 from eval_helpers.eval_suite import capture_metadata
 
 
-def single_agent_graph(model, temperature, reasoning, timeout, top_K, top_P):
+def single_agent_graph(model, temperature, reasoning, timeout, top_K, top_P, seed):
     class State(TypedDict):
         question: str
         narrative: str
@@ -20,7 +20,7 @@ def single_agent_graph(model, temperature, reasoning, timeout, top_K, top_P):
         model=model,
         temperature=temperature,
         reasoning=reasoning,
-        seed=42,
+        seed=seed,
         top_k=top_K,
         top_p=top_P,
         client_kwargs={"timeout": timeout},

@@ -9,7 +9,7 @@ from langgraph.graph import END, START, StateGraph
 from eval_helpers.eval_suite import capture_metadata
 
 
-def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP):
+def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
     class State(TypedDict):
         summary: str
         hypothesis: str
@@ -27,7 +27,7 @@ def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP):
         top_k=topK,
         top_p=topP,
         client_kwargs={"timeout": timeout},
-        seed=42,
+        seed=seed,
     )
 
     def build_graph(State, summarizer, evidence_extraction, diagnosticity, analysis):

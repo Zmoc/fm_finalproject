@@ -1,7 +1,11 @@
 import time
 
-from agents.multi_agent import multi_agent_graph, multi_agent_invoke
-from agents.single_agent import single_agent_graph, single_agent_invoke
+from agents.agents import (
+    multi_agent_graph,
+    multi_agent_invoke,
+    single_agent_graph,
+    single_agent_invoke,
+)
 from eval_helpers.eval_suite import eval, generate_test_list, metadata_extraction
 
 if __name__ == "__main__":
@@ -19,18 +23,19 @@ if __name__ == "__main__":
     reasoning = False
     eval_path = "data/eval_results/eval_results.csv"
 
-    single_agent_run = False
-    multi_agent_run = True
+    single_agent_run = True
+    multi_agent_run = False
     agent_type = ""
 
     for model in model_list:
+        kwargs = {"model": model, "reasoning": reasoning, "seed": seed}
         timestamp = time.time()
         if single_agent_run == True:
-            single_graph = single_agent_graph(model, reasoning, seed)
+            single_graph = single_agent_graph(**kwargs)
             agent_type = "single"
 
         if multi_agent_run == True:
-            multi_graph = multi_agent_graph(model, reasoning, seed)
+            multi_graph = multi_agent_graph(**kwargs)
             agent_type = "multi"
 
         print(f"Running {agent_type} agent using {model}")
@@ -38,17 +43,16 @@ if __name__ == "__main__":
         eval_list = []
         for story in test_list:
             index = story["index"]
-            narrative = story["narrative"]
             label = story["correct_answer"]
 
             if single_agent_run == True:
                 generated_answer, results = single_agent_invoke(
-                    single_graph, story, index, narrative
+                    single_graph, story, index
                 )
 
             if multi_agent_run == True:
                 generated_answer, results = multi_agent_invoke(
-                    multi_graph, story, index, narrative
+                    multi_graph, story, index
                 )
 
             test_result = label == generated_answer

@@ -11,7 +11,6 @@ from eval_helpers.eval_suite import capture_metadata
 
 def single_agent_graph(model, temperature, reasoning, timeout, top_K, top_P, seed):
     class State(TypedDict):
-        question: str
         narrative: str
         choices: str
         messages: str
@@ -36,16 +35,15 @@ def single_agent_graph(model, temperature, reasoning, timeout, top_K, top_P, see
 
     def single_agent(state: State):
         system_prompt = """
-                        Answer the following multiple choice question.
+                        You are a detective attempting to solve a murder.
+                        Based on the available information, determine who the most likely culprit is.
 
                         Return a JSON object with this structure:
                         {"suspect": "suspect name"}
                         """
 
         input_prompt = (
-            f"{state['narrative']}\n\n"
-            f"{state['question']}\n\n"
-            f"Your choices are: {state['choices']}"
+            f"Narrative: {state['narrative']}\n\nAvailable suspects: {state['choices']}"
         )
         response = model.invoke(
             [
@@ -63,13 +61,11 @@ def single_agent_graph(model, temperature, reasoning, timeout, top_K, top_P, see
 
 def single_agent_invoke(graph, story, index, narrative):
     results = []
-    question = story["question"]
     choices = story["choices"]
 
     print(f"Running Story {index}")
 
     invocation_state = {
-        "question": question,
         "narrative": narrative,
         "choices": choices,
         "messages": "",

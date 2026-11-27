@@ -14,6 +14,7 @@ def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
         summary: str
         hypothesis: str
         narrative: str
+        choices: str
         extraction: str
         key_evidence: list
         chosen_suspect: str
@@ -211,18 +212,17 @@ def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
 
     def analysis(state: State):
         analysis_system_prompt = """
-                        You are a detective attempting to solve a case using the Analysis of Competing Hypotheses method.
-                        Based on the narrative and key evidence, determine who the most likely culprit is.
-                        
+                        You are a detective attempting to solve a murder.
+                        Based on the available information, determine who the most likely culprit is.
+
                         Return a JSON object with this structure:
                         {"suspect": "suspect name"}
                         """
 
         analysis_input_prompt = (
-            f"Hypothesis:\n{state['hypothesis']}\n\n"
             f"Summary:\n{state['summary']}\n\n"
-            f"Narrative:\n{state['narrative']}\n\n"
-            f"Key Evidence:\n{state['key_evidence']}\n\n"
+            f"Evidence:\n{state['key_evidence']}\n\n"
+            f"Available suspects: {state['choices']}"
         )
         response = model.invoke(
             [
@@ -241,6 +241,7 @@ def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
 
 def multi_agent_invoke(graph, story, index, narrative):
     results = []
+    choices = story["choices"]
 
     def hypothesis_choose(evals):
         evalA = evals[0]
@@ -261,6 +262,7 @@ def multi_agent_invoke(graph, story, index, narrative):
                 "summary": "",
                 "hypothesis": hypothesis,
                 "narrative": narrative,
+                "choices": choices,
                 "extraction": "",
                 "key_evidence": "",
                 "chosen_suspect": "",

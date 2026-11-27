@@ -7,32 +7,22 @@ from eval_helpers.eval_suite import eval, generate_test_list, metadata_extractio
 if __name__ == "__main__":
     test_data_path = "data/test_data/short_run.csv"
     test_list = generate_test_list(test_data_path)
-    model_choice = "qwen3:8b"
-    reasoning = False
-    temperature = 0.7
-    top_K = 20
-    top_P = 0.8
-    timeout = 60.0
+    model_choice = "qwen3:14b"
     seed = 42
+    reasoning = False
     eval_path = "data/eval_results/eval_results.csv"
     timestamp = time.time()
 
-    single_agent_run = False
-    multi_agent_run = True
+    single_agent_run = True
+    multi_agent_run = False
     agent_type = ""
 
     if single_agent_run == True:
-        single_graph = single_agent_graph(
-            model_choice, temperature, reasoning, timeout, top_K, top_P, seed
-        )
-        single_graph.step_timeout = timeout
+        single_graph = single_agent_graph(model_choice, reasoning, seed)
         agent_type = "single"
 
     if multi_agent_run == True:
-        multi_graph = multi_agent_graph(
-            model_choice, temperature, reasoning, timeout, top_K, top_P, seed
-        )
-        multi_graph.step_timeout = timeout
+        multi_graph = multi_agent_graph(model_choice, reasoning, seed)
         agent_type = "multi"
 
     eval_list = []

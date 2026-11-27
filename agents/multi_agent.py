@@ -9,7 +9,7 @@ from langgraph.graph import END, START, StateGraph
 from eval_helpers.eval_suite import capture_metadata
 
 
-def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
+def multi_agent_graph(model, reasoning, seed):
     class State(TypedDict):
         summary: str
         narrative: str
@@ -21,12 +21,8 @@ def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
 
     model = ChatOllama(
         model=model,
-        temperature=temperature,
-        reasoning=reasoning,
         format="json",
-        top_k=topK,
-        top_p=topP,
-        client_kwargs={"timeout": timeout},
+        reasoning=reasoning,
         seed=seed,
     )
 

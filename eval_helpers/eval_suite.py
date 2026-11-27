@@ -5,17 +5,13 @@ from pathlib import Path
 
 def scoring(eval_list):
     pass_count = 0
-    indecisive_count = 0
     num_tests = len(eval_list)
     for test in eval_list:
-        if test["generated_answer"] == "Indecisive":
-            indecisive_count += 1
         if test["test_result"] == True:
             pass_count += 1
 
     accuracy = pass_count / num_tests
-    indecisive_rate = indecisive_count / num_tests
-    return accuracy, indecisive_rate
+    return accuracy
 
 
 def eval(eval_list, timestamp, model, thinking, model_type, test_data_path, eval_path):
@@ -27,7 +23,7 @@ def eval(eval_list, timestamp, model, thinking, model_type, test_data_path, eval
         writer.writeheader()
         writer.writerows(eval_list)
 
-    accuracy, indecisive_rate = scoring(eval_list)
+    accuracy = scoring(eval_list)
 
     eval_metadata = [
         {
@@ -37,7 +33,6 @@ def eval(eval_list, timestamp, model, thinking, model_type, test_data_path, eval
             "model_type": model_type,
             "thinking": thinking,
             "accuracy": accuracy,
-            "indecisive_rate": indecisive_rate,
         }
     ]
 

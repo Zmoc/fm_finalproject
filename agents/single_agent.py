@@ -1,3 +1,4 @@
+import json
 import operator
 from typing import Annotated, Any, TypedDict
 
@@ -20,6 +21,7 @@ def single_agent_graph(model, temperature, reasoning, timeout, top_K, top_P, see
         model=model,
         temperature=temperature,
         reasoning=reasoning,
+        format="json",
         seed=seed,
         top_k=top_K,
         top_p=top_P,
@@ -35,8 +37,9 @@ def single_agent_graph(model, temperature, reasoning, timeout, top_K, top_P, see
     def single_agent(state: State):
         system_prompt = """
                         Answer the following multiple choice question.
-                        If neither choice seems likely, output "Indecisive"
-                        Output only the name of the chosen suspect or Indecisive, no other words, descriptions, or formatting.
+
+                        Return a JSON object with this structure:
+                        {"suspect": "suspect name"}
                         """
 
         input_prompt = (
@@ -76,9 +79,8 @@ def single_agent_invoke(graph, story, index, narrative):
     try:
         result = graph.invoke(invocation_state)
         results.append(result)
+        generated_answer = json.loads(result["messages"][0].content)["suspect"]
 
-        response = result["messages"][0]
-        generated_answer = response.content.split("\n")[0]
     except TimeoutError:
         generated_answer = "Timeout"
 

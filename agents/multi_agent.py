@@ -12,12 +12,11 @@ from eval_helpers.eval_suite import capture_metadata
 def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
     class State(TypedDict):
         summary: str
-        hypothesis: str
         narrative: str
         choices: str
         extraction: str
         key_evidence: list
-        chosen_suspect: str
+        suspect: str
         model_calls: Annotated[list[dict[str, Any]], operator.add]
 
     model = ChatOllama(
@@ -47,7 +46,7 @@ def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
 
     def summarizer(state: State):
         summary_system_prompt = """
-                        You are a detective reviewing a case file.
+                        You are a detective attempting to solve a murder.
                         
                         Summarize the narrative impartially.
                         Do not speculate who the murderer is.
@@ -76,38 +75,24 @@ def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
 
     def evidence_extraction(state: State):
         evidence_system_prompt = """
-                        You are a detective using the Analysis of Competing Hypotheses method.
-                        Make a list of significant evidence and arguments for and against the given hypothesis.
-                        Return a JSON object with this structure:
+                        You are a detective attempting to solve a murder.
+                        Extract all relevent evidence in the narrative.
 
+                        Return a JSON object with this structure:
                         {
-                            "arguments_for": {
-                                argument1: {
-                                    "argument": "Description of the specific argument in support of the given hypothesis",
-                                    "evidence": [
-                                        {
-                                            "evidence_id": argument1_evidence1,
-                                            "evidence_text": "Description of the specific evidence",
-                                        }
-                                    ]
-                                }
-                            },
-                            "arguments_against": {
-                                argument2: {
-                                    "argument": "Description of the specific argument against the given hypothesis",
-                                    "evidence": [
-                                        {
-                                            "evidence_id": argument2_evidence1,
-                                            "evidence_text": "Description of the specific evidence",
-                                        }
-                                    ]
-                                }
-                            }
+                            "evidence": [
+                                "Evidence1 Description",
+                                "Evidence2 Description",
+                                "Evidence3 Description",
+                                "Evidence4 Description"
+                                ...
+                                "EvidenceN Description"
+                            ]
                         }
                         """
 
         evidence_input_prompt = (
-            f"Hypothesis: {state['hypothesis']}\n\nNarrative: {state['narrative']}"
+            f"Narrative: {state['narrative']}\n\nPossible Suspects: {state['choices']}"
         )
 
         response = model.invoke(
@@ -118,95 +103,61 @@ def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
         )
 
         return {
-            "extraction": response.content,
+            "extraction": json.loads(response.content),
             "model_calls": [capture_metadata("evidence_extraction", response)],
         }
 
     def diagnosticity(state: State):
+        response_list = []
         diagnostic_system_prompt = """
-                        You are an intelligence analyst using the Analysis of Competing Hypotheses method.
-                        Examine the given arguments and supporting evidence and determine the diagnosticity of each.
+                        You are a detective attempting to solve a murder.
+                        Using the narrative, if the given piece of evidence is Consistent or Inconsistent with each suspect.
                         
-                        Diagnosticity refers to how useful the information is in determining the likelihood of the stated hypothesis.
-                        Assign a score to each argument and individual piece of evidence from 1-5 where 1 is least diagnostic and 5 is the most diagnostic.
-                        
-                        A piece of evidence that is likely to be seen regardless of the hypothesis being True or False has a diagnostic value of 1.
-                        A piece of evidence that can only appear if the hypothesis is exclusively True or False (but not both) has a diagnostic value of 5.
+                        A piece of evidence is consistent with a given suspect if it is possible to see it if they are culprit.
+                        A piece of evidence is inconsistent with a given suspect if you could NOT possibly see it if they are culprit.
+                        A piece of evidence can be consistent with both suspects.
+                        A piece of evidence can likewise be inconsistent with both suspects.
                         
                         Return a JSON object with this structure:
                         {
-                            "arguments_for": {
-                                argument1: {
-                                    "argument": "Description of the specific argument in support of the given hypothesis",
-                                    "argument_diagnosticity_score": 3,
-                                    "evidence": [
-                                        {
-                                            "evidence_id": argument1_evidence1,
-                                            "evidence_text": "Description of the specific evidence",
-                                            "evidence_diagnosticity_score": 3
-                                        }
-                                    ]
-                                }
-                            },
-                            "arguments_against": {
-                                argument2: {
-                                    "argument": "Description of the specific argument against the given hypothesis",
-                                    "argument_diagnosticity_score": 3,
-                                    "evidence": [
-                                        {
-                                            "evidence_id": argument2_evidence1,
-                                            "evidence_text": "Description of the specific evidence",
-                                            "evidence_diagnosticity_score": 3
-                                        }
-                                    ]
-                                }
-                            }
+                            "Name of Suspect": "Consistent",
                         }
                         """
 
-        diagnostic_input_prompt = (
-            f"Hypothesis: {state['hypothesis']}\n\n"
-            f"Arguments and Evidence: {state['extraction']}"
-        )
-        response = model.invoke(
-            [
-                SystemMessage(content=(diagnostic_system_prompt)),
-                HumanMessage(content=(diagnostic_input_prompt)),
-            ]
-        )
+        evidence_list = state["extraction"]
+        for evidence in evidence_list["evidence"]:
+            diagnostic_input_prompt = (
+                f"Narrative: {state['narrative']}\n\n",
+                f"Evidence: {evidence}\n\n",
+                f"Suspect 1: {state['choices'][0]}",
+                f"Suspect 2: {state['choices'][1]}",
+            )
 
-        key_evidence = evidence_filtering(response)
+            response = model.invoke(
+                [
+                    SystemMessage(content=(diagnostic_system_prompt)),
+                    HumanMessage(content=(diagnostic_input_prompt)),
+                ]
+            )
+            response_list.append((evidence, json.loads(response.content)))
+
+        key_evidence = evidence_filtering(response_list, state["choices"])
 
         return {
             "key_evidence": key_evidence,
             "model_calls": [capture_metadata("diagnosticity", response)],
         }
 
-    def evidence_filtering(response):
+    def evidence_filtering(response_list, choices):
         key_evidence = []
 
-        scores = json.loads(response.content, strict=False)
-        argument_threshold = 1
-        evidence_threshold = 1
-        for key in scores:
-            try:
-                for argument_data in scores[key].values():
-                    if (
-                        argument_data["argument_diagnosticity_score"]
-                        >= argument_threshold
-                    ):
-                        if not argument_data["evidence"]:
-                            print(scores)
-                        else:
-                            for evidence_data in argument_data["evidence"]:
-                                if (
-                                    evidence_data["evidence_diagnosticity_score"]
-                                    >= evidence_threshold
-                                ):
-                                    key_evidence.append(evidence_data["evidence_text"])
-            except Exception as e:
-                print(e)
-                print(response.content)
+        for response in response_list:
+            print(response)
+            suspect1_rating = response[1][choices[0]]
+            suspect2_rating = response[1][choices[1]]
+
+            if suspect1_rating != suspect2_rating:
+                key_evidence.append(response[0])
 
         return key_evidence
 
@@ -232,7 +183,7 @@ def multi_agent_graph(model, temperature, reasoning, timeout, topK, topP, seed):
         )
 
         return {
-            "chosen_suspect": response.content,
+            "suspect": json.loads(response.content),
             "model_calls": [capture_metadata("analysis", response)],
         }
 
@@ -243,38 +194,22 @@ def multi_agent_invoke(graph, story, index, narrative):
     results = []
     choices = story["choices"]
 
-    def hypothesis_choose(evals):
-        evalA = evals[0]
-        evalB = evals[1]
-
-        if evalA["suspect"] == evalB["suspect"]:
-            chosen_suspect = evalA["suspect"]
-        else:
-            chosen_suspect = "Indecisive"
-        return chosen_suspect
-
-    evals = []
     try:
-        for hypothesis in story["hypothesis"]:
-            print(f"Running Story {index}, Hypothesis: {hypothesis}")
+        print(f"Running Story {index}")
 
-            invocation_state = {
-                "summary": "",
-                "hypothesis": hypothesis,
-                "narrative": narrative,
-                "choices": choices,
-                "extraction": "",
-                "key_evidence": "",
-                "chosen_suspect": "",
-                "model_calls": [],
-            }
+        invocation_state = {
+            "summary": "",
+            "narrative": narrative,
+            "choices": choices,
+            "extraction": "",
+            "key_evidence": "",
+            "suspect": "",
+            "model_calls": [],
+        }
 
-            result = graph.invoke(invocation_state)
-            results.append(result)
-            suspect = result["chosen_suspect"]
-            evals.append(json.loads(suspect))
-
-        generated_answer = hypothesis_choose(evals)
+        result = graph.invoke(invocation_state)
+        results.append(result)
+        generated_answer = result["suspect"]["suspect"]
 
     except TimeoutError:
         generated_answer = "Timeout"

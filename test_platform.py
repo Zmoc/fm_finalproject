@@ -7,20 +7,20 @@ from eval_helpers.eval_suite import eval, generate_test_list, metadata_extractio
 if __name__ == "__main__":
     test_data_path = "data/test_data/debug_run.csv"
     test_list = generate_test_list(test_data_path)
-    model_list = [
-        "qwen3:4b",
+    """    model_list = [
         "mistral:7b",
         "llama3.1:8b",
         "qwen3:8b",
         "gemma3:12b",
         "qwen3:14b",
-    ]
+    ]"""
+    model_list = ["qwen3:8b"]
     seed = 42
     reasoning = False
     eval_path = "data/eval_results/eval_results.csv"
 
-    single_agent_run = True
-    multi_agent_run = False
+    single_agent_run = False
+    multi_agent_run = True
     agent_type = ""
 
     for model in model_list:
